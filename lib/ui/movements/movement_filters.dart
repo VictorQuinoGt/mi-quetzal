@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import 'movement_labels.dart';
+import '../categories/category_labels.dart';
 import 'movements_view_model.dart';
 
 class MovementFilters extends StatefulWidget {
@@ -76,9 +77,12 @@ class _MovementFiltersState extends State<MovementFilters> {
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth >= 640
-                ? (constraints.maxWidth - 24) / 3
-                : constraints.maxWidth;
+            final columns = constraints.maxWidth >= 1000
+                ? 4
+                : constraints.maxWidth >= 640
+                ? 2
+                : 1;
+            final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
             return Wrap(
               spacing: 12,
               runSpacing: 16,
@@ -173,6 +177,58 @@ class _MovementFiltersState extends State<MovementFilters> {
                         ),
                     ],
                     onChanged: vm.filterByCurrency,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'history-category-${filter.categoryId}-${filter.uncategorizedOnly}',
+                    ),
+                    initialValue:
+                        filter.categoryId?.toString() ??
+                        (filter.uncategorizedOnly ? 'none' : 'all'),
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Filtrar por categoría',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'all',
+                        child: Text(
+                          'Todas las categorías',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const DropdownMenuItem(
+                        value: 'none',
+                        child: Text(
+                          'Sin categoría',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      for (final category in vm.categories)
+                        DropdownMenuItem(
+                          value: category.id.toString(),
+                          child: Text(
+                            '${category.details.name} · ${category.details.kind.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value == 'none') {
+                        vm.filterByCategory(null, uncategorizedOnly: true);
+                      } else if (value == null || value == 'all') {
+                        vm.filterByCategory(null);
+                      } else {
+                        vm.filterByCategory(int.parse(value));
+                      }
+                    },
                   ),
                 ),
               ],

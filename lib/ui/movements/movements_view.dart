@@ -12,10 +12,16 @@ class MovementsView extends StatelessWidget {
     required this.viewModel,
     required this.onCreate,
     required this.onOpenAccounts,
+    required this.onManageCategories,
+    required this.onCategorize,
+    required this.onRefund,
   });
   final MovementsViewModel viewModel;
   final VoidCallback onCreate;
   final VoidCallback onOpenAccounts;
+  final VoidCallback onManageCategories;
+  final ValueChanged<Movement> onCategorize;
+  final ValueChanged<Movement> onRefund;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -30,6 +36,17 @@ class MovementsView extends StatelessWidget {
             'Compras, ingresos y transferencias con sus cuentas vinculadas.',
           ),
           const SizedBox(height: 24),
+          if (viewModel.status == MovementsStatus.ready) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: onManageCategories,
+                icon: const Icon(Icons.category_outlined),
+                label: const Text('Categorías'),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           if (viewModel.status == MovementsStatus.loading)
             const Center(child: CircularProgressIndicator())
           else if (viewModel.status == MovementsStatus.error) ...[
@@ -94,7 +111,12 @@ class MovementsView extends StatelessWidget {
                 ),
               ),
             for (final movement in viewModel.visibleMovements) ...[
-              _MovementCard(movement: movement, viewModel: viewModel),
+              _MovementCard(
+                movement: movement,
+                viewModel: viewModel,
+                onCategorize: () => onCategorize(movement),
+                onRefund: () => onRefund(movement),
+              ),
               const SizedBox(height: 16),
             ],
           ],
@@ -105,9 +127,16 @@ class MovementsView extends StatelessWidget {
 }
 
 class _MovementCard extends StatelessWidget {
-  const _MovementCard({required this.movement, required this.viewModel});
+  const _MovementCard({
+    required this.movement,
+    required this.viewModel,
+    required this.onCategorize,
+    required this.onRefund,
+  });
   final Movement movement;
   final MovementsViewModel viewModel;
+  final VoidCallback onCategorize;
+  final VoidCallback onRefund;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +154,38 @@ class _MovementCard extends StatelessWidget {
             Text(details.type.label, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             Text(details.description, style: theme.textTheme.titleMedium),
+            if (details.isExpense || details.isIncome || details.isRefund) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Categoría: ${viewModel.categoryById(viewModel.categoryIdFor(movement))?.details.name ?? 'Sin categoría'}',
+              ),
+              if (!details.isRefund)
+                TextButton.icon(
+                  onPressed: onCategorize,
+                  icon: const Icon(Icons.label_outline),
+                  label: const Text('Categorizar'),
+                ),
+            ],
+            if (details.isExpense) ...[
+              Text(
+                'Pendiente de devolver: ${viewModel.remainingRefund(movement).formatted}',
+              ),
+              if (viewModel.remainingRefund(movement).minorUnits > 0)
+                TextButton.icon(
+                  onPressed: onRefund,
+                  icon: const Icon(Icons.undo),
+                  label: const Text('Devolver'),
+                )
+              else
+                const Text('Compra devuelta por completo'),
+            ],
+            if (details.isRefund) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Compra original: ${viewModel.movementById(details.originalMovementId)!.details.description}',
+              ),
+              const Text('Revierte gasto · No suma ingresos'),
+            ],
             const SizedBox(height: 12),
             Text(
               details.amount.formatted,

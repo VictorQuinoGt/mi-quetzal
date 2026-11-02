@@ -20,6 +20,13 @@ final class Money {
   final int minorUnits;
   final Currency currency;
 
+  factory Money.fromBigInt(BigInt minorUnits, Currency currency) {
+    if (minorUnits.abs() > _maxExact) {
+      throw ArgumentError('El total excede el rango de importes admitido.');
+    }
+    return Money(minorUnits.toInt(), currency);
+  }
+
   Money add(Money other) {
     if (currency != other.currency) {
       throw ArgumentError('No se pueden sumar monedas distintas.');

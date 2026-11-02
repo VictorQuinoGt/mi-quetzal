@@ -19,9 +19,12 @@ Aplicación Flutter con tema propio e interfaz en español:
 - Saldos actuales calculados desde la apertura y los movimientos, sin mezclar monedas.
 - Tarjetas de débito vinculadas a bancos, sin saldos independientes, y compras identificadas por tarjeta.
 - Filtros de historial por cuenta, operación, moneda, descripción y rango de fechas.
-- Migración al esquema 3 que conserva las cuentas y movimientos anteriores.
+- Categorías propias de ingreso/gasto, opcionales al registrar y asignables a operaciones anteriores.
+- Resumen mensual en Inicio, por moneda y categoría, sin doble gasto por pagos de tarjeta.
+- Devoluciones parciales o completas vinculadas a compras, con control del importe pendiente y reversión del gasto.
+- Migración al esquema 5 que conserva cuentas, tarjetas, categorías y movimientos anteriores.
 
-Cuentas muestra saldo o deuda actual junto con su apertura. Un pago mayor a la deuda deja saldo a favor, mostrado por separado del límite de crédito. Todavía no hay edición/borrado, categorías, devoluciones vinculadas, adelantos de crédito, conversiones, resúmenes mensuales, presupuestos ni importación. No se cargan datos de ejemplo ni saldos ficticios.
+Cuentas muestra saldo o deuda actual junto con su apertura. Un pago o una devolución mayor a la deuda deja saldo a favor, mostrado por separado del límite de crédito. La categoría de ingresos/gastos se puede cambiar; la edición general y el borrado de cuentas/movimientos aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
 
 ## Desarrollo
 
@@ -96,6 +99,36 @@ Débito se registra con alias y últimos cuatro opcionales. Solo puede vinculars
 
 Los filtros se combinan, mantienen el orden del historial y nunca recalculan saldos con una lista parcial. El filtro por cuenta incluye origen y destino de transferencias/pagos. La búsqueda en descripción es literal y no distingue mayúsculas; los extremos del rango de fechas son inclusivos. Se conservan al navegar o recargar datos, pero se reinician al abrir una nueva sesión de la app.
 
+## Probar categorías y resumen mensual
+
+Instalar la APK como actualización, sin desinstalar ni borrar datos, para comprobar la migración desde la versión anterior.
+
+1. En Movimientos → Categorías, crear «Alimentos de prueba» de tipo Gasto y «Salario de prueba» de tipo Ingreso. Las categorías no se asignan automáticamente por descripción.
+2. Para una prueba aislada, usar nuevas cuentas sintéticas en GTQ: «Banco resumen» con apertura `1000` y «Crédito resumen» con deuda inicial `0`.
+3. En el mes actual, registrar ingreso `100` al banco con categoría «Salario de prueba», una compra de crédito de `50` con «Alimentos de prueba» y un pago de tarjeta de `20` desde el banco hacia crédito.
+4. En Inicio, el incremento de los totales GTQ del mes debe ser ingresos `100`, gastos `50` y diferencia `50`. El pago de `20` no vuelve a sumar gasto; la apertura `1000` tampoco es ingreso. Si ya hay operaciones de ese mes, estos valores se agregan a ellas.
+5. En Movimientos, pulsar «Categorizar» sobre un ingreso o gasto anterior. Asignar una categoría compatible o «Sin categoría». Deben conservarse descripción, fecha, importe, identidad y saldos; el desglose por categoría se actualiza.
+6. Probar el filtro por categoría y «Sin categoría». Este último incluye ingresos/gastos no clasificados y sus devoluciones; no incluye transferencias ni pagos. Los filtros no cambian los totales de Inicio.
+7. Cambiar al mes anterior y regresar. GTQ y USD tienen resúmenes separados; no se suman ni convierten. Cerrar y volver a abrir la app para comprobar la conservación de categorías y asignaciones.
+
+El resumen utiliza todas las operaciones del mes seleccionado, incluidas compras con crédito y débito una sola vez. Excluye aperturas, transferencias y pagos de tarjeta. «Diferencia del mes» es ingreso menos gasto y no representa dinero disponible. Los meses sin ingresos/gastos muestran un estado vacío, incluso si solo hubo transferencias. Las categorías de ingreso y gasto se mantienen separadas; no se aplican a pagos ni transferencias.
+
+Los totales usan centavos exactos y comprobación de rango mediante `BigInt`. Si un agregado supera el rango de `Money`, el resumen muestra un error explícito; los movimientos válidos se conservan. No se ha implementado renombrar, borrar o fusionar categorías. Se permiten nombres repetidos con identidades diferentes.
+
+## Probar devoluciones en el teléfono
+
+Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus datos. En Movimientos, cada compra con importe pendiente tiene el botón «Devolver»; las devoluciones se registran desde esa compra.
+
+1. Crear cuentas sintéticas GTQ «Banco devoluciones» con apertura `1000` y «Crédito devoluciones» con deuda `0`.
+2. Registrar una compra de `50` desde el banco. Pulsar «Devolver» en esa compra, escribir descripción e importe `20` y guardar. Banco debe quedar en `970`; el pendiente de devolver es `30`.
+3. Si ambas operaciones son del mes actual, el incremento de gastos del resumen debe ser `30`, sin nuevos ingresos. Si la compra es del mes anterior, conserva el gasto original en ese mes y resta `20` de los gastos del mes de devolución; el total neto puede ser negativo.
+4. Devolver los `30` restantes. Banco regresa a `1000` y la compra muestra «Compra devuelta por completo». El registro original conserva importe, fecha, descripción y tarjeta de débito si tenía una.
+5. Registrar compra de crédito de `50` y pagar `50` desde el banco. Después devolver `20` de esa compra: crédito debe mostrar saldo a favor `20`, sin registrar otro ingreso ni modificar el pago.
+6. Intentar devolver `30.01` de esa compra cuyo pendiente es `30`. El formulario debe rechazarlo sin cambiar saldo ni historial. La fecha debe estar entre la compra original y hoy.
+7. Filtrar por operación «Devolución» y por la categoría de la compra. Cambiar la categoría de la compra también cambia la clasificación de sus devoluciones, sin tocar importes ni saldos. Cerrar y abrir la app para comprobar persistencia.
+
+Las devoluciones siempre usan la cuenta y moneda originales, tanto para efectivo/banco como para crédito. Se admiten varias devoluciones parciales hasta completar el importe de cada compra; compras repetidas legítimas mantienen pendientes independientes. La escritura es transaccional y se bloquea el doble envío. No se admiten devoluciones de ingresos, pagos, transferencias ni otras devoluciones, ni abonos sin compra original conocida en este flujo.
+
 ## Codex y arquitectura
 
 Leer [AGENTS.md](AGENTS.md) antes de cambiar el proyecto. Define responsabilidades MVVM, reglas financieras, privacidad y comprobaciones.
@@ -142,9 +175,9 @@ Cuando cambien plugins o integración Android:
 flutter build apk --debug
 ```
 
-Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, validaciones, estados, envíos repetidos, fallos de escritura y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1 y 2 y fallos de migración sin borrar datos. Las pruebas de SQLite web se omiten en la ejecución nativa y se ejecutan mediante el comando explícito de Chrome. Su archivo está en la raíz de `test/` para evitar el escape incorrecto de rutas anidadas del ejecutor de Flutter 3.47 en Windows; agrupa también las pruebas monetarias, débito y filtros en JavaScript.
+Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, categorías, resúmenes mensuales, validaciones, envíos repetidos, errores y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1, 2, 3 y 4 y fallos de migración sin borrar datos. Se comprueba que categorizar conserva datos financieros y que los totales mensuales no dependen de filtros ni mezclan monedas. Las pruebas exclusivas de SQLite web se omiten en la ejecución nativa; el comando de Chrome usa un archivo en la raíz de `test/` para evitar el defecto de rutas anidadas de Flutter 3.47 en Windows y agrupa también pruebas de dominio en JavaScript.
 
-Verificación del incremento de débito y filtros: formato y análisis sin incidencias, 100 pruebas nativas y 27 en Chrome aprobadas, y compilaciones APK debug y web correctas. Las tres pruebas exclusivas de SQLite web se omiten al ejecutarlas en el entorno nativo. Los nuevos flujos incluyen teclado y texto ampliado a 320 px.
+Verificación del incremento de devoluciones: formato y análisis sin incidencias, compilaciones APK debug y web correctas, 154 pruebas nativas y 48 en Chrome aprobadas. Las cinco pruebas exclusivas de SQLite web se omiten en el entorno nativo. Se comprueban devoluciones parciales/totales, crédito pagado con saldo a favor, límites acumulados, concurrencia, monedas, meses anteriores, categorías, migración desde v4 y reversión de una migración fallida. El formulario incluye pruebas con teclado y texto ampliado a 320 px.
 
 La prueba física en teléfono debe realizarse con los pasos anteriores; no se ha ejecutado desde este entorno. Los cambios solo documentales o de Git requieren revisar diff y patrones afectados, sin compilar la app. No existe todavía un flujo CI configurado.
 
@@ -155,10 +188,10 @@ La prueba física en teléfono debe realizarse con los pasos anteriores; no se h
 - `sqflite_common_ffi` permite probar el mismo repositorio con SQLite real en la computadora.
 - `path` compone la ruta local y `flutter_localizations` presenta controles y fechas en español.
 
-El esquema actual es versión 3, tablas `accounts`, `movements` y `debit_cards`, con identificadores estables, restricciones, claves foráneas activadas y altas transaccionales. La apertura se mantiene en cuentas; los saldos actuales se reconstruyen en el dominio sin sobrescribirla. La migración 3 añade tarjetas y la referencia opcional `debit_card_id` en movimientos; los movimientos anteriores conservan esa referencia nula. Los disparadores SQL impiden vincular débito a cuentas no bancarias o usar una tarjeta con otra cuenta. Las futuras migraciones deben conservar los datos. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
+El esquema actual es versión 5: `accounts`, `movements`, `debit_cards` y `categories`. La migración amplía los tipos de movimiento y añade `movements.original_movement_id`, referencia a la compra de una devolución. Reconstruye la tabla dentro de una transacción, preservando importes, fechas, descripciones, identidades, vínculos, secuencia e índices/disparadores existentes. Claves foráneas y disparadores protegen referencias bancarias, categorías y devoluciones compatibles que no superen la compra. Un fallo revierte la migración sin borrar la base. Las altas y categorizaciones son transaccionales. La apertura se mantiene en cuentas; los saldos se reconstruyen en el dominio. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
 
 ## Próximo incremento
 
-Añadir categorías y resúmenes por moneda. Después incorporar devoluciones vinculadas y conciliación. No cargar históricos reales antes de implementar y comprobar su importación.
+Incorporar conciliación e importación validada. No cargar históricos reales antes de implementar y comprobar su importación.
 
 El applicationId `com.example.mi_quetzal`, nombre Android de plantilla y firma release quedan pendientes antes de distribuir.

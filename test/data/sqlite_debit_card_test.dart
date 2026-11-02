@@ -89,7 +89,10 @@ void main() {
       expect(snapshot.movements.single.id, 7);
       expect(snapshot.movements.single.details.debitCardId, isNull);
       expect(snapshot.debitCards, isEmpty);
-      expect(await (await database.database).getVersion(), 3);
+      expect(
+        await (await database.database).getVersion(),
+        LocalDatabase.schemaVersion,
+      );
     },
   );
 

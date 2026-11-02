@@ -1,5 +1,6 @@
 import '../rules/movement_rules.dart';
 import 'account.dart';
+import 'category.dart';
 import 'debit_card.dart';
 import 'movement.dart';
 
@@ -8,6 +9,7 @@ final class LedgerSnapshot {
     List<Account> accounts,
     List<Movement> movements, {
     List<DebitCard> debitCards = const [],
+    List<Category> categories = const [],
   }) {
     for (final card in debitCards) {
       card.details.validateAccount(accounts);
@@ -21,11 +23,14 @@ final class LedgerSnapshot {
         final dateOrder = a.details.date.compareTo(b.details.date);
         return dateOrder == 0 ? a.id.compareTo(b.id) : dateOrder;
       });
+    final processed = <Movement>[];
     for (final movement in chronological) {
       final effects = MovementRules.effects(
         movement.details,
         accounts,
         debitCards: debitCards,
+        categories: categories,
+        movements: processed,
       );
       for (final entry in effects.entries) {
         try {
@@ -46,6 +51,7 @@ final class LedgerSnapshot {
           );
         }
       }
+      processed.add(movement);
     }
     this.accounts = List.unmodifiable([
       for (final account in accounts)
@@ -57,9 +63,11 @@ final class LedgerSnapshot {
     ]);
     this.movements = List.unmodifiable(chronological.reversed);
     this.debitCards = List.unmodifiable(debitCards);
+    this.categories = List.unmodifiable(categories);
   }
 
   late final List<Account> accounts;
   late final List<Movement> movements;
   late final List<DebitCard> debitCards;
+  late final List<Category> categories;
 }

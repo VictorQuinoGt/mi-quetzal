@@ -3,11 +3,18 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 import '../../app/navigation/app_section.dart';
 import '../core/page_content.dart';
+import '../movements/movements_view_model.dart';
+import 'monthly_summary_view.dart';
 
 class HomeView extends StatelessWidget {
-  const HomeView({super.key, required this.onNavigate});
+  const HomeView({
+    super.key,
+    required this.onNavigate,
+    required this.viewModel,
+  });
 
   final ValueChanged<AppSection> onNavigate;
+  final MovementsViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +60,8 @@ class HomeView extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 24),
+        MonthlySummaryView(viewModel: viewModel),
         const SizedBox(height: 24),
         Card(
           child: Padding(

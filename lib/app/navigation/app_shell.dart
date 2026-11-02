@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/movement_repository.dart';
+import '../../domain/models/movement.dart';
+import '../../ui/categories/categories_view.dart';
+import '../../ui/categories/categorize_movement_view.dart';
 import '../../ui/accounts/accounts_view.dart';
 import '../../ui/accounts/accounts_view_model.dart';
 import '../../ui/accounts/create_account_view.dart';
@@ -10,6 +13,7 @@ import '../../ui/home/home_view.dart';
 import '../../ui/movements/movements_view.dart';
 import '../../ui/movements/movements_view_model.dart';
 import '../../ui/movements/create_movement_view.dart';
+import '../../ui/movements/create_refund_view.dart';
 import '../../ui/planning/planning_view.dart';
 import 'app_section.dart';
 import 'app_shell_view_model.dart';
@@ -101,6 +105,52 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  Future<void> _manageCategories() async {
+    if (_movementsViewModel.status != MovementsStatus.ready) return;
+    _movementsViewModel.startCreate();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => CategoriesView(viewModel: _movementsViewModel),
+      ),
+    );
+  }
+
+  Future<void> _categorizeMovement(Movement movement) async {
+    if (_movementsViewModel.status != MovementsStatus.ready) return;
+    _movementsViewModel.startCreate();
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => CategorizeMovementView(
+          viewModel: _movementsViewModel,
+          movement: movement,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Categoría actualizada')));
+    }
+  }
+
+  Future<void> _refundMovement(Movement original) async {
+    if (_movementsViewModel.status != MovementsStatus.ready) return;
+    _movementsViewModel.startCreate();
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => CreateRefundView(
+          viewModel: _movementsViewModel,
+          original: original,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      await _accountsViewModel.load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Devolución guardada')));
+    }
+  }
+
   static const _destinations = [
     (section: AppSection.home, label: 'Inicio', icon: Icons.home_outlined),
     (
@@ -129,11 +179,17 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _page(AppSection section) => switch (section) {
-    AppSection.home => HomeView(onNavigate: _viewModel.selectSection),
+    AppSection.home => HomeView(
+      onNavigate: _viewModel.selectSection,
+      viewModel: _movementsViewModel,
+    ),
     AppSection.movements => MovementsView(
       viewModel: _movementsViewModel,
       onCreate: _createMovement,
       onOpenAccounts: () => _viewModel.selectSection(AppSection.accounts),
+      onManageCategories: _manageCategories,
+      onCategorize: _categorizeMovement,
+      onRefund: _refundMovement,
     ),
     AppSection.accounts => AccountsView(
       viewModel: _accountsViewModel,

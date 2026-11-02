@@ -8,6 +8,8 @@ final class MovementFilter {
     this.accountId,
     this.type,
     this.currency,
+    this.categoryId,
+    this.uncategorizedOnly = false,
     DateTime? from,
     DateTime? to,
   }) : query = query.trim().toLowerCase(),
@@ -16,11 +18,18 @@ final class MovementFilter {
     if (this.from != null && this.to != null && this.from!.isAfter(this.to!)) {
       throw ArgumentError('El inicio no puede ser posterior al fin.');
     }
+    if (categoryId != null && uncategorizedOnly) {
+      throw ArgumentError(
+        'Selecciona una categoría o sin categoría, no ambos.',
+      );
+    }
   }
   final String query;
   final int? accountId;
   final MovementType? type;
   final Currency? currency;
+  final int? categoryId;
+  final bool uncategorizedOnly;
   final DateTime? from;
   final DateTime? to;
   bool get isActive =>
@@ -28,21 +37,33 @@ final class MovementFilter {
       accountId != null ||
       type != null ||
       currency != null ||
+      categoryId != null ||
+      uncategorizedOnly ||
       from != null ||
       to != null;
 
-  List<Movement> apply(List<Movement> movements) => List.unmodifiable(
-    movements.where((movement) {
-      final data = movement.details;
-      return (query.isEmpty ||
-              data.description.toLowerCase().contains(query)) &&
-          (accountId == null ||
-              data.accountId == accountId ||
-              data.counterpartyAccountId == accountId) &&
-          (type == null || data.type == type) &&
-          (currency == null || data.amount.currency == currency) &&
-          (from == null || !data.date.isBefore(from!)) &&
-          (to == null || !data.date.isAfter(to!));
-    }),
-  );
+  List<Movement> apply(List<Movement> movements) {
+    final byId = {for (final movement in movements) movement.id: movement};
+    return List.unmodifiable(
+      movements.where((movement) {
+        final data = movement.details;
+        final effectiveCategory = data.isRefund
+            ? byId[data.originalMovementId]?.details.categoryId
+            : data.categoryId;
+        return (query.isEmpty ||
+                data.description.toLowerCase().contains(query)) &&
+            (accountId == null ||
+                data.accountId == accountId ||
+                data.counterpartyAccountId == accountId) &&
+            (type == null || data.type == type) &&
+            (currency == null || data.amount.currency == currency) &&
+            (categoryId == null || effectiveCategory == categoryId) &&
+            (!uncategorizedOnly ||
+                effectiveCategory == null &&
+                    (data.isExpense || data.isIncome || data.isRefund)) &&
+            (from == null || !data.date.isBefore(from!)) &&
+            (to == null || !data.date.isAfter(to!));
+      }),
+    );
+  }
 }

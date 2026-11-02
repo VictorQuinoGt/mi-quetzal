@@ -20,6 +20,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   int? _accountId;
   int? _counterpartyId;
   int? _debitCardId;
+  int? _categoryId;
   late DateTime _date;
   @override
   void initState() {
@@ -41,6 +42,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       accountId: _accountId,
       counterpartyAccountId: _counterpartyId,
       debitCardId: _debitCardId,
+      categoryId: _categoryId,
       amount: _amount.text,
       description: _description.text,
       date: _date,
@@ -91,7 +93,9 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    for (final type in MovementType.values)
+                    for (final type in MovementType.values.where(
+                      (t) => t != MovementType.refund,
+                    ))
                       DropdownMenuItem(
                         value: type,
                         child: Text(
@@ -108,10 +112,15 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           _accountId = null;
                           _counterpartyId = null;
                           _debitCardId = null;
+                          _categoryId = null;
                         }),
                 ),
                 const SizedBox(height: 16),
                 Text(_type.explanation),
+                const SizedBox(height: 8),
+                const Text(
+                  'Para registrar una devolución, abre la compra original en Movimientos y pulsa «Devolver».',
+                ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<int>(
                   key: ValueKey('origin-${_type.name}'),
@@ -241,6 +250,44 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (_type == MovementType.expense ||
+                    _type == MovementType.income) ...[
+                  if (vm.categoriesFor(_type).isNotEmpty)
+                    DropdownButtonFormField<int>(
+                      key: ValueKey('movement-category-${_type.name}'),
+                      initialValue: _categoryId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Categoría (opcional)',
+                        errorText: vm.fieldErrors['category'],
+                        errorMaxLines: 3,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text('Sin categoría'),
+                        ),
+                        for (final category in vm.categoriesFor(_type))
+                          DropdownMenuItem(
+                            value: category.id,
+                            child: Text(
+                              category.details.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: vm.isSaving
+                          ? null
+                          : (id) => setState(() => _categoryId = id),
+                    )
+                  else
+                    const Text(
+                      'Puedes crear categorías desde Movimientos → Categorías.',
+                    ),
+                  const SizedBox(height: 20),
+                ],
                 TextField(
                   controller: _amount,
                   enabled: !vm.isSaving,
