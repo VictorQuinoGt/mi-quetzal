@@ -46,3 +46,42 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local environment configuration (keep sanitized examples versioned)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Android signing and local SDK configuration
+**/local.properties
+**/key.properties
+*.jks
+*.keystore
+
+# Private financial files: keep real data in these directories
+/local_data/
+/private/
+/imports/
+/exports/
+/backups/
+/Gastos Personales TC.xlsx
+
+# Local databases and journal files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Machine-specific editor configuration
+.vscode/*.local.json
+
+# Keep pubspec.lock, .metadata, AGENTS.md and sanitized fixtures versioned.
