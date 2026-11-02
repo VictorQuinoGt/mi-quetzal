@@ -2,7 +2,7 @@
 
 ## Decisión y estado actual
 
-La aplicación utiliza Flutter/Dart para Android. Se adopta MVVM para desarrollar funcionalidades. La separación aquí descrita todavía debe implementarse: el código inicial mantiene la pantalla de ejemplo del contador.
+La aplicación utiliza Flutter/Dart para Android, con soporte web para desarrollar y comprobar la interfaz sin Android Studio. Se adopta MVVM. Están implementados cuentas, compras/gastos, ingresos, transferencias y pagos de tarjeta con persistencia SQLite y saldos derivados. Tarjetas de débito, devoluciones, planificación e importación siguen pendientes.
 
 El entorno revisado utiliza Flutter 3.47.0 y Dart 3.13.0. `pubspec.yaml` declara Dart `^3.13.0`. Estas versiones describen la revisión inicial y no autorizan actualizaciones automáticas.
 
@@ -23,6 +23,21 @@ Los cambios sobre varias cuentas se realizan en una transacción desde datos. La
 ## Organización prevista
 
 Crear las rutas conforme se implementa cada módulo, sin añadir carpetas vacías.
+
+Implementado en este incremento:
+
+- `main.dart` compone una `LocalDatabase` compartida por `SqliteAccountRepository` y `SqliteMovementRepository`, inyectados en `MiQuetzalApp`.
+- `app/navigation/` contiene `AppSection`, `AppShellViewModel` y `AppShell`. El ViewModel conserva la sección seleccionada y notifica sus cambios.
+- `ui/accounts/` contiene listado, formulario y `AccountsViewModel`, que recibe `AccountRepository` por constructor. Coordina carga, alta, errores y bloqueo de envíos repetidos. Las vistas solo recopilan entradas y representan el estado.
+- `domain/models/` contiene dinero, cuentas, movimientos y `LedgerSnapshot`. `domain/rules/movement_rules.dart` centraliza las validaciones y efectos de cada operación, sin Flutter ni SQL.
+- `ui/movements/` contiene listado, formulario, etiquetas y `MovementsViewModel`, que recibe `MovementRepository`. Maneja carga, cuentas compatibles, validación de entradas, guardado y errores.
+- `data/repositories/` contiene el contrato de cuentas y su implementación SQLite. El repositorio asigna identificadores persistentes y guarda los datos en una transacción.
+- `data/services/` abre la base, activa claves foráneas y aplica migraciones versionadas; selecciona la fábrica nativa/web por importación condicional.
+- `ui/home/` y `ui/planning/` mantienen sus vistas de presentación. Las introductorias no necesitan repositorios hasta que existan operaciones propias.
+- `ui/core/` reúne el contenedor desplazable y la presentación de funciones pendientes.
+- `web/` permite ejecutar el mismo código de interfaz en Chrome o Edge.
+
+El estado de navegación es efímero y comienza en Inicio en cada arranque. En Cuentas, el acceso rápido abre «Nueva cuenta». En las demás secciones, «Registrar» abre el formulario de movimientos o conduce a Cuentas si no hay ninguna. Tras crear una cuenta se recarga la instantánea de movimientos; tras guardar un movimiento se recargan las cuentas. Los formularios no se pueden cerrar durante una escritura y conservan los datos si falla.
 
 | Ruta | Contenido previsto |
 | --- | --- |
@@ -48,7 +63,19 @@ Cada ViewModel expone carga, vacío, datos y error. La View no interpreta excepc
 
 ## Persistencia y datos
 
-Se prevé persistencia local para uso sin conexión. SQLite es la opción propuesta; todavía no existe una base ni un paquete instalado para ella. Su implementación debe definir esquema, migraciones, transacciones y recuperación antes de cargar el histórico real.
+SQLite está implementado para cuentas y movimientos mediante `sqflite` en Android. La adaptación web `sqflite_common_ffi_web` persiste en IndexedDB y es experimental; requiere generar `sqlite3.wasm` y `sqflite_sw.js` mediante `tool/prepare_web.ps1`. Sus archivos generados no se versionan. En desarrollo se mantiene el puerto 5353 para conservar el origen del almacenamiento. No hay sincronización entre plataformas.
+
+`LocalDatabase` conserva una sola apertura y permite reintentar tras un fallo. El esquema 1 crea `accounts`. El esquema 2 añade `movements` e índice por fecha, con referencias a cuenta principal y contraparte opcional. `onCreate` y `onUpgrade` llaman a migraciones dentro de la transacción de sqflite; un downgrade falla sin borrar la base. Las operaciones de alta usan parámetros y una transacción. No se ha implementado reparación ni restauración de bases dañadas.
+
+Una transferencia o pago es una sola fila con dos referencias de cuenta y una identidad común. `SqliteMovementRepository` lee el estado, valida la operación, inserta la fila y reconstruye `LedgerSnapshot` antes del commit, usando solo el objeto transacción. Ante error se revierte la operación completa. Los repositorios comparten `ledger_reader.dart` para obtener cuentas e historial consistentes. No se almacenan saldos actuales duplicados en SQL.
+
+`LedgerSnapshot` ordena por fecha y luego identidad de registro, calcula efectos con `MovementRules` y construye cuentas con `currentBalance`. Se mantienen apertura y moneda. Efectivo nunca puede quedar negativo, incluso con movimientos retroactivos; banco admite sobregiro. Crédito puede quedar con saldo a favor por un pago mayor a la deuda, sin alterar la regla de apertura no negativa. La pantalla muestra el importe a favor como positivo con su etiqueta.
+
+Las compras con fondos reducen saldo; con crédito aumentan deuda. Los ingresos solo se aplican a efectivo/banco. Transferencias y pagos no se clasifican como ingreso ni gasto. Los pagos exigen origen de fondos y destino de crédito; las transferencias excluyen crédito. Cada cuenta involucrada debe usar la moneda de la operación y tener apertura no posterior a ella. Al registrar se rechazan fechas futuras. No se implementan conversiones ni pagos de origen desconocido en este formulario.
+
+`AccountDetails` representa el alta: alias, tipo efectivo/banco/crédito, saldo o deuda inicial, moneda y fecha. Crédito admite límite y últimos cuatro opcionales; una deuda superior al límite no se rechaza. Las tarjetas de débito se modelarán aparte, referenciando cuentas bancarias. Los identificadores enteros no dependen del alias ni de últimos dígitos; se permiten alias repetidos.
+
+`Money` usa centavos enteros dentro del rango exacto compartido con JavaScript (valor absoluto máximo 9007199254740991). Análisis decimal y sumas usan `BigInt` para comprobar el rango antes de convertir; se rechaza exceso de precisión o rango sin redondear y no se usa `double`. No se suman monedas distintas. Los saldos iniciales se guardan como apertura, separados de movimientos. El almacenamiento no está cifrado ni incluye respaldos.
 
 Guardar dinero como unidades menores enteras y conservar su moneda. La tarjeta de débito referencia la cuenta bancaria que mantiene el saldo. La deuda de crédito es independiente del dinero disponible.
 

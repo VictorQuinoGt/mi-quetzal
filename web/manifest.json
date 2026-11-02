@@ -1,0 +1,19 @@
+{
+  "name": "Mi Quetzal",
+  "short_name": "Mi Quetzal",
+  "lang": "es",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F5F7F3",
+  "theme_color": "#123E35",
+  "description": "Control personal de cuentas, tarjetas y planificación financiera.",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -45,7 +45,7 @@
 - Diseñar reimportaciones idempotentes, lotes rastreables y escrituras atómicas. No modificar el Excel original.
 - Mantener separadas categorías, tipos de operación y reglas que sugieren clasificaciones.
 - Al implementar SQLite, usar consultas parametrizadas, claves foráneas, transacciones y migraciones versionadas. No borrar la base del usuario para resolver una migración.
-- La persistencia todavía no está instalada. No presentar SQLite, sincronización, autenticación ni respaldos como disponibles sin implementarlos y verificarlos.
+- Cuentas y movimientos tienen persistencia SQLite con migraciones. No presentar sincronización, autenticación, cifrado, respaldos ni nuevas funciones como disponibles sin implementarlos y verificarlos.
 
 ## Privacidad y Git
 - Usar exclusivamente datos sintéticos en ejemplos y pruebas. Guardar Excel reales, estados de cuenta, exportaciones y respaldos en las carpetas ignoradas.

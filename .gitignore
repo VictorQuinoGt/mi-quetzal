@@ -85,3 +85,9 @@ app.*.map.json
 .vscode/*.local.json
 
 # Keep pubspec.lock, .metadata, AGENTS.md and sanitized fixtures versioned.
+
+# Recursos generados de SQLite web (regenerar con dart run sqflite_common_ffi_web:setup)
+/web/sqlite3.wasm
+/web/sqflite_sw.js
+/test/web_assets/
+/test/canvaskit/
