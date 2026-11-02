@@ -18,6 +18,7 @@ import 'domain/debit_card_test.dart' as debit_card_tests;
 import 'domain/movement_filter_test.dart' as movement_filter_tests;
 import 'domain/categories_and_summary_test.dart' as categories_summary_tests;
 import 'domain/refund_test.dart' as refund_tests;
+import 'domain/multicurrency_account_test.dart' as multicurrency_tests;
 
 void main() {
   // En Flutter 3.47/Windows, el ejecutor web pierde separadores en rutas anidadas.
@@ -29,7 +30,148 @@ void main() {
     movement_filter_tests.main();
     categories_summary_tests.main();
     refund_tests.main();
+    multicurrency_tests.main();
   }
+  test('SQLite web migra v5, completa moneda de crédito y edita banco/débito sin alterar historial', () async {
+    final factory = createDatabaseFactoryFfiWeb(
+      options: SqfliteFfiWebOptions(
+        sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+        sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+        indexedDbName: 'mi_quetzal_browser_tests',
+      ),
+    );
+    final path =
+        'test_account_edit_${DateTime.now().microsecondsSinceEpoch}.db';
+    final database = LocalDatabase(factory: factory, path: path);
+    addTearDown(() async {
+      await database.close();
+      await factory.deleteDatabase(path);
+    });
+    final old = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 5,
+        onCreate: (db, version) => LocalDatabase.migrate(db, 0, version),
+      ),
+    );
+    for (final entry in [
+      (1, 'creditCard', 'gtq', 1000),
+      (2, 'bank', 'usd', 10000),
+    ]) {
+      await old.insert('accounts', {
+        'id': entry.$1,
+        'name': 'Cuenta sintética',
+        'type': entry.$2,
+        'currency': entry.$3,
+        'opening_minor': entry.$4,
+        'opening_date': '2026-10-01',
+      });
+    }
+    await old.insert('debit_cards', {
+      'id': 7,
+      'name': 'Débito sintético',
+      'account_id': 2,
+    });
+    await old.insert('movements', {
+      'id': 9,
+      'type': 'expense',
+      'account_id': 1,
+      'amount_minor': 125,
+      'currency': 'gtq',
+      'occurred_on': '2026-11-01',
+      'description': 'Compra anterior sintética',
+    });
+    await old.close();
+    final accounts = SqliteAccountRepository(database);
+    final movements = SqliteMovementRepository(
+      database,
+      now: () => DateTime(2026, 11, 2),
+    );
+    expect(
+      (await accounts.getAccounts()).first.secondaryCurrentBalance,
+      isNull,
+    );
+    await accounts.updateAccount(
+      1,
+      AccountDetails(
+        name: 'Crédito actualizado',
+        type: AccountType.creditCard,
+        openingBalance: Money(1000, Currency.gtq),
+        secondaryOpeningBalance: Money(2000, Currency.usd),
+        openingDate: DateTime(2026, 10, 1),
+      ),
+    );
+    await accounts.updateAccount(
+      2,
+      AccountDetails(
+        name: 'Banco actualizado',
+        type: AccountType.bank,
+        bankAccountType: BankAccountType.savings,
+        openingBalance: Money(10000, Currency.usd),
+        openingDate: DateTime(2026, 10, 1),
+      ),
+    );
+    await accounts.updateDebitCard(
+      7,
+      DebitCardDetails(
+        name: 'Débito actualizado',
+        accountId: 2,
+        lastFour: '0042',
+      ),
+    );
+    final expense = await movements.createMovement(
+      MovementDetails(
+        type: MovementType.expense,
+        accountId: 1,
+        amount: Money(500, Currency.usd),
+        date: DateTime(2026, 11, 2),
+        description: 'Compra USD sintética',
+      ),
+    );
+    final originalId = expense.movements.first.id;
+    await movements.createMovement(
+      MovementDetails(
+        type: MovementType.creditPayment,
+        accountId: 2,
+        counterpartyAccountId: 1,
+        amount: Money(200, Currency.usd),
+        date: DateTime(2026, 11, 2),
+        description: 'Pago USD sintético',
+      ),
+    );
+    await movements.createMovement(
+      MovementDetails(
+        type: MovementType.refund,
+        accountId: 1,
+        originalMovementId: originalId,
+        amount: Money(100, Currency.usd),
+        date: DateTime(2026, 11, 2),
+        description: 'Devolución USD sintética',
+      ),
+    );
+    await database.close();
+    final after = await movements.getSnapshot();
+    expect(after.accounts.first.currentBalance.minorUnits, 1125);
+    expect(
+      after.accounts.first.secondaryCurrentBalance,
+      Money(2200, Currency.usd),
+    );
+    expect(after.accounts.last.currentBalance.minorUnits, 9800);
+    expect(
+      after.accounts.last.details.bankAccountType,
+      BankAccountType.savings,
+    );
+    expect(after.debitCards.single.details.name, 'Débito actualizado');
+    expect(after.debitCards.single.id, 7);
+    expect(after.movements, hasLength(4));
+    expect(after.movements.last.id, 9);
+    final report = MonthlySummary.calculate(after, 2026, 11);
+    expect(report.currencies.map((c) => c.expense.minorUnits), [125, 400]);
+    expect(
+      await (await database.database).rawQuery('PRAGMA foreign_key_check'),
+      isEmpty,
+    );
+  }, skip: !kIsWeb);
   test('SQLite web migra v4 y persiste devoluciones con saldo a favor sin ingresos', () async {
     final factory = createDatabaseFactoryFfiWeb(
       options: SqfliteFfiWebOptions(

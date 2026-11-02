@@ -40,6 +40,8 @@ final class Money {
 
   Money get negated => Money(-minorUnits, currency);
   Money get absolute => Money(minorUnits.abs(), currency);
+  String get input =>
+      '${minorUnits < 0 ? '-' : ''}${minorUnits.abs() ~/ 100}.${(minorUnits.abs() % 100).toString().padLeft(2, '0')}';
 
   /// Acepta punto o coma decimal, sin separadores de miles ni redondeos.
   factory Money.parse(String input, Currency currency) {

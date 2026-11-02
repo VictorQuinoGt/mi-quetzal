@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/movement_repository.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/account.dart';
+import '../../domain/models/debit_card.dart';
 import '../../ui/categories/categories_view.dart';
 import '../../ui/categories/categorize_movement_view.dart';
 import '../../ui/accounts/accounts_view.dart';
@@ -43,19 +45,25 @@ class _AppShellState extends State<AppShell> {
     _movementsViewModel = MovementsViewModel(widget.movementRepository)..load();
   }
 
-  Future<void> _createAccount() async {
+  Future<void> _createAccount([Account? account]) async {
     if (_accountsViewModel.status != AccountsStatus.ready) return;
     _accountsViewModel.startCreate();
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => CreateAccountView(viewModel: _accountsViewModel),
+        builder: (context) =>
+            CreateAccountView(viewModel: _accountsViewModel, account: account),
       ),
     );
     if (created == true && mounted) {
       await _movementsViewModel.load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cuenta guardada')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            account == null ? 'Cuenta guardada' : 'Cuenta actualizada',
+          ),
+        ),
+      );
     }
   }
 
@@ -84,7 +92,7 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  Future<void> _linkDebitCard() async {
+  Future<void> _linkDebitCard([DebitCard? card]) async {
     if (_accountsViewModel.status != AccountsStatus.ready ||
         _accountsViewModel.bankAccounts.isEmpty) {
       return;
@@ -93,14 +101,20 @@ class _AppShellState extends State<AppShell> {
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) =>
-            CreateDebitCardView(viewModel: _accountsViewModel),
+            CreateDebitCardView(viewModel: _accountsViewModel, card: card),
       ),
     );
     if (created == true && mounted) {
       await _movementsViewModel.load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tarjeta de débito vinculada')),
+        SnackBar(
+          content: Text(
+            card == null
+                ? 'Tarjeta de débito vinculada'
+                : 'Tarjeta de débito actualizada',
+          ),
+        ),
       );
     }
   }
@@ -195,6 +209,8 @@ class _AppShellState extends State<AppShell> {
       viewModel: _accountsViewModel,
       onCreate: _createAccount,
       onLinkDebitCard: _linkDebitCard,
+      onEdit: _createAccount,
+      onEditDebit: _linkDebitCard,
     ),
     AppSection.planning => const PlanningView(),
   };

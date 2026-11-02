@@ -124,12 +124,12 @@ void main() {
       expect(find.text('Tarjeta de débito vinculada'), findsOneWidget);
       expect(find.text('Débito de prueba'), findsOneWidget);
       expect(find.text('Vinculada a: Banco'), findsOneWidget);
-      expect(find.text('GTQ 1,000.00'), findsOneWidget);
+      expect(find.text('GTQ 1,000.00'), findsNWidgets(2));
       expect(accounts.stored, hasLength(4));
       await tester.pumpWidget(const SizedBox());
       await boot(tester, 'Cuentas');
       expect(find.text('Débito de prueba'), findsOneWidget);
-      expect(find.text('GTQ 1,000.00'), findsOneWidget);
+      expect(find.text('GTQ 1,000.00'), findsNWidgets(2));
     },
   );
 
@@ -231,7 +231,7 @@ void main() {
     expect(movements.stored.single.details.debitCardId, 1);
     await tester.tap(find.text('Cuentas'));
     await tester.pumpAndSettle();
-    expect(find.text('GTQ 987.50'), findsOneWidget);
+    expect(find.text('GTQ 987.50'), findsNWidgets(2));
     expect(movements.snapshot.accounts, hasLength(4));
   });
 

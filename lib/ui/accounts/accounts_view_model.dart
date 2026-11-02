@@ -4,6 +4,7 @@ import '../../data/repositories/account_repository.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/debit_card.dart';
 import '../../domain/models/money.dart';
+import '../../domain/models/movement.dart';
 
 enum AccountsStatus { loading, ready, error }
 
@@ -68,6 +69,13 @@ class AccountsViewModel extends ChangeNotifier {
     required String name,
     required int? accountId,
     String lastFour = '',
+  }) => saveDebitCard(name: name, accountId: accountId, lastFour: lastFour);
+
+  Future<bool> saveDebitCard({
+    int? editingId,
+    required String name,
+    required int? accountId,
+    String lastFour = '',
   }) async {
     if (_saving || _status != AccountsStatus.ready) return false;
     _fieldErrors = const {};
@@ -88,8 +96,15 @@ class AccountsViewModel extends ChangeNotifier {
     _saving = true;
     _emit();
     try {
-      final card = await _repository.createDebitCard(details);
-      _debitCards = [..._debitCards, card];
+      final card = editingId == null
+          ? await _repository.createDebitCard(details)
+          : await _repository.updateDebitCard(editingId, details);
+      _debitCards = editingId == null
+          ? [..._debitCards, card]
+          : [
+              for (final current in _debitCards)
+                current.id == editingId ? card : current,
+            ];
       return true;
     } on DebitCardValidationException catch (error) {
       _fieldErrors = {error.field: error.message};
@@ -117,12 +132,34 @@ class AccountsViewModel extends ChangeNotifier {
     required DateTime openingDate,
     String creditLimit = '',
     String lastFour = '',
+  }) => saveAccount(
+    name: name,
+    type: type,
+    currency: currency,
+    openingBalance: openingBalance,
+    openingDate: openingDate,
+    creditLimit: creditLimit,
+    lastFour: lastFour,
+  );
+
+  Future<bool> saveAccount({
+    int? editingId,
+    required String name,
+    required AccountType type,
+    required Currency currency,
+    required String openingBalance,
+    required DateTime openingDate,
+    String creditLimit = '',
+    String lastFour = '',
+    BankAccountType? bankAccountType,
+    String secondaryOpeningBalance = '',
+    String secondaryCreditLimit = '',
   }) async {
     if (_saving || _status != AccountsStatus.ready) return false;
     final errors = <String, String>{};
-    Money? parse(String value, String field) {
+    Money? parse(String value, String field, [Currency? inCurrency]) {
       try {
-        return Money.parse(value, currency);
+        return Money.parse(value, inCurrency ?? currency);
       } on FormatException catch (error) {
         errors[field] = error.message;
         return null;
@@ -133,6 +170,22 @@ class AccountsViewModel extends ChangeNotifier {
     final limit =
         type == AccountType.creditCard && creditLimit.trim().isNotEmpty
         ? parse(creditLimit, 'creditLimit')
+        : null;
+    final otherCurrency = currency == Currency.gtq
+        ? Currency.usd
+        : Currency.gtq;
+    final secondaryBalance =
+        type == AccountType.creditCard &&
+            secondaryOpeningBalance.trim().isNotEmpty
+        ? parse(
+            secondaryOpeningBalance,
+            'secondaryOpeningBalance',
+            otherCurrency,
+          )
+        : null;
+    final secondaryLimit =
+        type == AccountType.creditCard && secondaryCreditLimit.trim().isNotEmpty
+        ? parse(secondaryCreditLimit, 'secondaryCreditLimit', otherCurrency)
         : null;
     AccountDetails? details;
     if (openingDate.isAfter(today)) {
@@ -148,6 +201,9 @@ class AccountsViewModel extends ChangeNotifier {
           openingDate: openingDate,
           creditLimit: limit,
           lastFour: type == AccountType.creditCard ? lastFour : null,
+          bankAccountType: type == AccountType.bank ? bankAccountType : null,
+          secondaryOpeningBalance: secondaryBalance,
+          secondaryCreditLimit: secondaryLimit,
         );
       } on ArgumentError catch (error) {
         errors[error.name ?? 'name'] = error.message as String;
@@ -162,9 +218,24 @@ class AccountsViewModel extends ChangeNotifier {
     _saving = true;
     _emit();
     try {
-      final account = await _repository.createAccount(details);
-      _accounts = [..._accounts, account];
+      final account = editingId == null
+          ? await _repository.createAccount(details)
+          : await _repository.updateAccount(editingId, details);
+      _accounts = editingId == null
+          ? [..._accounts, account]
+          : [
+              for (final current in _accounts)
+                current.id == editingId ? account : current,
+            ];
       return true;
+    } on ArgumentError catch (error) {
+      _fieldErrors = {error.name ?? 'name': error.message.toString()};
+      return false;
+    } on MovementValidationException catch (error) {
+      _fieldErrors = {
+        error.field == 'date' ? 'openingDate' : 'openingBalance': error.message,
+      };
+      return false;
     } catch (_) {
       _saveError = 'No se pudo guardar la cuenta. Tus datos del formulario se conservan; intenta de nuevo.';
       return false;

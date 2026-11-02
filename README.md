@@ -4,7 +4,7 @@ Aplicación personal para Android orientada al control de cuentas, tarjetas de c
 
 ## Estado actual
 
-Aplicación Flutter con tema propio e interfaz en español:
+Aplicación Flutter con tema azul y rojo e interfaz en español:
 
 - Inicio con accesos a Movimientos, Cuentas y Planificación.
 - Navegación inferior en móvil y lateral desde 840 px de ancho.
@@ -12,6 +12,10 @@ Aplicación Flutter con tema propio e interfaz en español:
 - Acceso rápido «Registrar» con formulario de movimientos; si faltan cuentas, conduce a su alta.
 - Soporte web para desarrollar y probar la interfaz sin Android Studio.
 - Registro y listado de efectivo, cuentas bancarias y tarjetas de crédito.
+- Cuentas organizadas en crédito, débito, bancos y efectivo, con tarjetas visuales del mismo estilo y saldos actuales visibles.
+- Crédito con aperturas, saldos/deudas y límites independientes en GTQ y USD dentro de una misma tarjeta.
+- Cuentas bancarias de tipo Monetario o Ahorro; débito muestra el saldo compartido del banco vinculado.
+- Edición de cuentas y tarjetas de débito existentes, conservando identidad e historial.
 - Importes exactos en centavos, con moneda GTQ o USD, saldo/deuda inicial y fecha.
 - Límite de crédito y últimos cuatro dígitos opcionales; no se solicitan números completos, CVV ni PIN.
 - Persistencia SQLite de cuentas y recuperación al volver a abrir la aplicación.
@@ -22,9 +26,9 @@ Aplicación Flutter con tema propio e interfaz en español:
 - Categorías propias de ingreso/gasto, opcionales al registrar y asignables a operaciones anteriores.
 - Resumen mensual en Inicio, por moneda y categoría, sin doble gasto por pagos de tarjeta.
 - Devoluciones parciales o completas vinculadas a compras, con control del importe pendiente y reversión del gasto.
-- Migración al esquema 5 que conserva cuentas, tarjetas, categorías y movimientos anteriores.
+- Migración al esquema 6 que conserva cuentas, tarjetas, categorías y movimientos anteriores.
 
-Cuentas muestra saldo o deuda actual junto con su apertura. Un pago o una devolución mayor a la deuda deja saldo a favor, mostrado por separado del límite de crédito. La categoría de ingresos/gastos se puede cambiar; la edición general y el borrado de cuentas/movimientos aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
+Cuentas muestra saldo o deuda actual junto con su apertura. Un pago o una devolución mayor a la deuda deja saldo a favor en su moneda, mostrado por separado del límite de crédito. Se pueden editar alias, aperturas, fecha, límites, últimos cuatro y tipo bancario; el tipo general y la moneda principal de una cuenta existente se conservan. La categoría de ingresos/gastos se puede cambiar; la edición general de movimientos y el borrado aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
 
 ## Desarrollo
 
@@ -129,6 +133,21 @@ Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus d
 
 Las devoluciones siempre usan la cuenta y moneda originales, tanto para efectivo/banco como para crédito. Se admiten varias devoluciones parciales hasta completar el importe de cada compra; compras repetidas legítimas mantienen pendientes independientes. La escritura es transaccional y se bloquea el doble envío. No se admiten devoluciones de ingresos, pagos, transferencias ni otras devoluciones, ni abonos sin compra original conocida en este flujo.
 
+## Probar cuentas editables, saldos GTQ/USD y nuevo diseño
+
+Instalar la APK como actualización, sin desinstalar ni borrar datos. Las cuentas anteriores conservan su moneda, apertura, vínculos e historial. El tipo bancario y la segunda moneda que no estaban registrados quedan sin especificar hasta completarlos al editar.
+
+1. En Cuentas, pulsar el lápiz rojo de una tarjeta de crédito existente. Comprobar que están cargados su alias, apertura original, fecha, límite y últimos cuatro.
+2. Conservar la deuda inicial GTQ y registrar, por ejemplo, `25.29` en «Deuda inicial USD», o `0` si no hay deuda en dólares. Añadir un límite USD es opcional. Si la tarjeta anterior tenía USD como moneda principal, el segundo campo corresponde a GTQ. No hay conversión ni suma entre monedas.
+3. Guardar y comprobar ambas deudas actuales en una sola tarjeta. El saldo actual incluye los movimientos anteriores; el formulario edita la apertura, no registra una compra ni ingreso nuevo.
+4. En Registrar, seleccionar esa tarjeta y elegir «Moneda del movimiento». Una compra USD debe aumentar solo su deuda USD. Su devolución usa automáticamente esa misma moneda.
+5. Para pagar USD, usar un banco USD como origen y la tarjeta dual como destino. La deuda GTQ no debe cambiar; pagos y transferencias no convierten monedas.
+6. Al crear un banco, elegir «Monetario» o «Ahorro». También se puede completar o cambiar este dato al editar un banco anterior. Su saldo actual aparece tanto en Cuentas bancarias como en sus tarjetas de débito, sin duplicar fondos.
+7. Editar el alias o los últimos cuatro de una tarjeta de débito. Si ya tiene compras, no se puede cambiar su banco vinculado. Las compras conservan su referencia a la tarjeta.
+8. Cerrar y volver a abrir la app para comprobar persistencia. Intentar una apertura posterior a movimientos existentes o un efectivo inicial que dejaría el historial negativo: debe rechazarse sin guardar cambios parciales.
+
+La segunda moneda de crédito es opcional: dejarla vacía significa que aún no se ha registrado, no saldo cero. Una vez que tiene movimientos, no se puede quitar. El tipo general y la moneda principal se conservan al editar para evitar reinterpretar el historial. El tema utiliza azul para marca/acciones y rojo para edición, selección y errores.
+
 ## Codex y arquitectura
 
 Leer [AGENTS.md](AGENTS.md) antes de cambiar el proyecto. Define responsabilidades MVVM, reglas financieras, privacidad y comprobaciones.
@@ -175,9 +194,9 @@ Cuando cambien plugins o integración Android:
 flutter build apk --debug
 ```
 
-Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, categorías, resúmenes mensuales, validaciones, envíos repetidos, errores y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1, 2, 3 y 4 y fallos de migración sin borrar datos. Se comprueba que categorizar conserva datos financieros y que los totales mensuales no dependen de filtros ni mezclan monedas. Las pruebas exclusivas de SQLite web se omiten en la ejecución nativa; el comando de Chrome usa un archivo en la raíz de `test/` para evitar el defecto de rutas anidadas de Flutter 3.47 en Windows y agrupa también pruebas de dominio en JavaScript.
+Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, categorías, resúmenes mensuales, validaciones, envíos repetidos, errores y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1, 2, 3, 4 y 5 y fallos de migración sin borrar datos. Se comprueba que categorizar conserva datos financieros y que los totales mensuales no dependen de filtros ni mezclan monedas. Las pruebas exclusivas de SQLite web se omiten en la ejecución nativa; el comando de Chrome usa un archivo en la raíz de `test/` para evitar el defecto de rutas anidadas de Flutter 3.47 en Windows y agrupa también pruebas de dominio en JavaScript.
 
-Verificación del incremento de devoluciones: formato y análisis sin incidencias, compilaciones APK debug y web correctas, 154 pruebas nativas y 48 en Chrome aprobadas. Las cinco pruebas exclusivas de SQLite web se omiten en el entorno nativo. Se comprueban devoluciones parciales/totales, crédito pagado con saldo a favor, límites acumulados, concurrencia, monedas, meses anteriores, categorías, migración desde v4 y reversión de una migración fallida. El formulario incluye pruebas con teclado y texto ampliado a 320 px.
+Verificación del incremento de cuentas editables: formato y análisis sin incidencias, compilaciones APK debug y web correctas, 176 pruebas nativas y 54 en Chrome aprobadas. Las seis pruebas exclusivas de SQLite web se omiten en el entorno nativo. Se comprueban saldos GTQ/USD independientes, compras/pagos/devoluciones por moneda, edición sin alterar movimientos, validación del historial, débito compartido, tipos bancarios y migración desde v5 sin inventar saldos ni clasificaciones. Las pruebas incluyen teclado y texto ampliado a 320 px; se revisó el diseño mediante capturas locales con datos sintéticos.
 
 La prueba física en teléfono debe realizarse con los pasos anteriores; no se ha ejecutado desde este entorno. Los cambios solo documentales o de Git requieren revisar diff y patrones afectados, sin compilar la app. No existe todavía un flujo CI configurado.
 
@@ -188,7 +207,7 @@ La prueba física en teléfono debe realizarse con los pasos anteriores; no se h
 - `sqflite_common_ffi` permite probar el mismo repositorio con SQLite real en la computadora.
 - `path` compone la ruta local y `flutter_localizations` presenta controles y fechas en español.
 
-El esquema actual es versión 5: `accounts`, `movements`, `debit_cards` y `categories`. La migración amplía los tipos de movimiento y añade `movements.original_movement_id`, referencia a la compra de una devolución. Reconstruye la tabla dentro de una transacción, preservando importes, fechas, descripciones, identidades, vínculos, secuencia e índices/disparadores existentes. Claves foráneas y disparadores protegen referencias bancarias, categorías y devoluciones compatibles que no superen la compra. Un fallo revierte la migración sin borrar la base. Las altas y categorizaciones son transaccionales. La apertura se mantiene en cuentas; los saldos se reconstruyen en el dominio. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
+El esquema actual es versión 6: `accounts`, `movements`, `debit_cards` y `categories`. La migración v6 añade columnas opcionales para tipo bancario, segunda apertura y segundo límite de crédito, preservando los valores anteriores. Las columnas quedan nulas en cuentas existentes hasta que se completen. Las altas y ediciones son transaccionales; editar una apertura reconstruye el historial antes del commit y revierte ante incompatibilidad. La migración v5 conserva el vínculo `movements.original_movement_id` de devoluciones. Claves foráneas, restricciones y disparadores protegen vínculos, monedas y categorías. La apertura se mantiene separada de los movimientos; los saldos actuales se reconstruyen por cuenta y moneda en el dominio. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
 
 ## Próximo incremento
 

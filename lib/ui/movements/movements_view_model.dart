@@ -137,6 +137,7 @@ class MovementsViewModel extends ChangeNotifier {
       type: MovementType.refund,
       originalMovementId: originalMovementId,
       accountId: original.details.accountId,
+      currency: original.details.amount.currency,
       amount: amount,
       description: description,
       date: date,
@@ -236,8 +237,10 @@ class MovementsViewModel extends ChangeNotifier {
         .where(
           (account) =>
               account.id != originId &&
-              account.details.openingBalance.currency ==
-                  origin?.details.openingBalance.currency &&
+              account.details.openingBalanceFor(
+                    origin?.details.openingBalance.currency ?? Currency.gtq,
+                  ) !=
+                  null &&
               MovementRules.canBeDestination(account, type),
         )
         .toList();
@@ -276,6 +279,7 @@ class MovementsViewModel extends ChangeNotifier {
     int? debitCardId,
     int? categoryId,
     int? originalMovementId,
+    Currency? currency,
     required String amount,
     required String description,
     required DateTime date,
@@ -294,7 +298,10 @@ class MovementsViewModel extends ChangeNotifier {
       }
       Money value;
       try {
-        value = Money.parse(amount, account.details.openingBalance.currency);
+        value = Money.parse(
+          amount,
+          currency ?? account.details.openingBalance.currency,
+        );
       } on FormatException catch (error) {
         throw MovementValidationException('amount', error.message);
       }

@@ -16,7 +16,8 @@ final class LedgerSnapshot {
     }
     final balances = {
       for (final account in accounts)
-        account.id: account.details.openingBalance,
+        for (final balance in account.details.openingBalances)
+          (account.id, balance.currency): balance,
     };
     final chronological = [...movements]
       ..sort((a, b) {
@@ -34,7 +35,8 @@ final class LedgerSnapshot {
       );
       for (final entry in effects.entries) {
         try {
-          final balance = balances[entry.key]!.add(entry.value);
+          final key = (entry.key, entry.value.currency);
+          final balance = balances[key]!.add(entry.value);
           final account = accounts.firstWhere((a) => a.id == entry.key);
           if (account.details.type == AccountType.cash &&
               balance.minorUnits < 0) {
@@ -43,7 +45,7 @@ final class LedgerSnapshot {
               'El efectivo no puede quedar negativo. Revisa el importe y las fechas de tus operaciones.',
             );
           }
-          balances[entry.key] = balance;
+          balances[key] = balance;
         } on ArgumentError {
           throw const MovementValidationException(
             'amount',
@@ -58,7 +60,15 @@ final class LedgerSnapshot {
         Account(
           id: account.id,
           details: account.details,
-          currentBalance: balances[account.id],
+          currentBalance:
+              balances[(account.id, account.details.openingBalance.currency)],
+          secondaryCurrentBalance:
+              account.details.secondaryOpeningBalance == null
+              ? null
+              : balances[(
+                  account.id,
+                  account.details.secondaryOpeningBalance!.currency,
+                )],
         ),
     ]);
     this.movements = List.unmodifiable(chronological.reversed);

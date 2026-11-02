@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:mi_quetzal/data/repositories/account_repository.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/debit_card.dart';
+import 'package:mi_quetzal/domain/rules/account_rules.dart';
 
 class FakeAccountRepository implements AccountRepository {
   final List<Account> stored = [];
@@ -31,6 +32,44 @@ class FakeAccountRepository implements AccountRepository {
   int createCalls = 0;
   Completer<void>? saveGate;
   List<Account> Function()? currentReader;
+  void Function(List<Account>)? validateAccounts;
+  void Function(int, DebitCardDetails)? validateDebitUpdate;
+  int updateCalls = 0;
+  int updateCardCalls = 0;
+
+  @override
+  Future<Account> updateAccount(int id, AccountDetails details) async {
+    updateCalls++;
+    if (saveGate != null) await saveGate!.future;
+    if (failSave) throw StateError('Fallo de escritura sintético');
+    final index = stored.indexWhere((a) => a.id == id);
+    if (index < 0) throw ArgumentError('La cuenta ya no existe.', 'name');
+    AccountRules.validateUpdate(stored[index], details);
+    final updated = Account(id: id, details: details);
+    final next = [...stored]..[index] = updated;
+    validateAccounts?.call(next);
+    stored[index] = updated;
+    return (currentReader?.call() ?? stored).singleWhere((a) => a.id == id);
+  }
+
+  @override
+  Future<DebitCard> updateDebitCard(int id, DebitCardDetails details) async {
+    updateCardCalls++;
+    if (saveGate != null) await saveGate!.future;
+    if (failSave) throw StateError('Fallo de escritura sintético');
+    final index = cards.indexWhere((c) => c.id == id);
+    if (index < 0) {
+      throw const DebitCardValidationException(
+        'name',
+        'La tarjeta ya no existe.',
+      );
+    }
+    details.validateAccount(stored);
+    validateDebitUpdate?.call(id, details);
+    final updated = DebitCard(id: id, details: details);
+    cards[index] = updated;
+    return updated;
+  }
 
   @override
   Future<List<Account>> getAccounts() async {

@@ -1,12 +1,16 @@
 import '../../domain/models/account.dart';
 import '../../domain/models/debit_card.dart';
+import '../../domain/models/movement.dart';
+import '../../domain/rules/account_rules.dart';
 import '../services/ledger_reader.dart';
 import '../services/local_database.dart';
 import 'account_repository.dart';
 
 class SqliteAccountRepository implements AccountRepository {
-  SqliteAccountRepository(this._database);
+  SqliteAccountRepository(this._database, {DateTime Function()? now})
+    : _now = now ?? DateTime.now;
   final LocalDatabase _database;
+  final DateTime Function() _now;
 
   @override
   Future<List<DebitCard>> getDebitCards() async {
@@ -42,16 +46,88 @@ class SqliteAccountRepository implements AccountRepository {
   Future<Account> createAccount(AccountDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
-      final id = await transaction.insert('accounts', {
-        'name': details.name,
-        'type': details.type.name,
-        'currency': details.openingBalance.currency.name,
-        'opening_minor': details.openingBalance.minorUnits,
-        'opening_date': details.openingDate.toIso8601String().substring(0, 10),
-        'credit_limit_minor': details.creditLimit?.minorUnits,
-        'last_four': details.lastFour,
-      });
+      final id = await transaction.insert('accounts', _values(details));
       return Account(id: id, details: details);
     });
   }
+
+  @override
+  Future<Account> updateAccount(int id, AccountDetails details) async {
+    final db = await _database.database;
+    return db.transaction((transaction) async {
+      final before = await readLedger(transaction);
+      final matches = before.accounts.where((a) => a.id == id);
+      if (matches.isEmpty) {
+        throw ArgumentError('La cuenta ya no existe.', 'name');
+      }
+      AccountRules.validateUpdate(
+        matches.single,
+        details,
+        movements: before.movements,
+      );
+      final now = _now();
+      if (details.openingDate.isAfter(DateTime(now.year, now.month, now.day))) {
+        throw ArgumentError(
+          'El saldo inicial no puede tener una fecha futura.',
+          'openingDate',
+        );
+      }
+      await transaction.update(
+        'accounts',
+        _values(details),
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      try {
+        final after = await readLedger(transaction);
+        return after.accounts.singleWhere((a) => a.id == id);
+      } on MovementValidationException catch (error) {
+        throw ArgumentError(
+          'El cambio no es compatible con el historial. ${error.message}',
+          error.field == 'date' ? 'openingDate' : 'openingBalance',
+        );
+      }
+    });
+  }
+
+  @override
+  Future<DebitCard> updateDebitCard(int id, DebitCardDetails details) async {
+    final db = await _database.database;
+    return db.transaction((transaction) async {
+      final snapshot = await readLedger(transaction);
+      if (!snapshot.debitCards.any((c) => c.id == id)) {
+        throw const DebitCardValidationException(
+          'name',
+          'La tarjeta ya no existe.',
+        );
+      }
+      details.validateAccount(snapshot.accounts);
+      AccountRules.validateDebitUpdate(id, details, snapshot.movements);
+      await transaction.update(
+        'debit_cards',
+        {
+          'name': details.name,
+          'account_id': details.accountId,
+          'last_four': details.lastFour,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await readLedger(transaction);
+      return DebitCard(id: id, details: details);
+    });
+  }
+
+  Map<String, Object?> _values(AccountDetails details) => {
+    'name': details.name,
+    'type': details.type.name,
+    'currency': details.openingBalance.currency.name,
+    'opening_minor': details.openingBalance.minorUnits,
+    'opening_date': details.openingDate.toIso8601String().substring(0, 10),
+    'credit_limit_minor': details.creditLimit?.minorUnits,
+    'last_four': details.lastFour,
+    'bank_account_type': details.bankAccountType?.name,
+    'secondary_opening_minor': details.secondaryOpeningBalance?.minorUnits,
+    'secondary_credit_limit_minor': details.secondaryCreditLimit?.minorUnits,
+  };
 }

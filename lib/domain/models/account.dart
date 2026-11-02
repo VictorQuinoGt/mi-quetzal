@@ -2,6 +2,8 @@ import 'money.dart';
 
 enum AccountType { cash, bank, creditCard }
 
+enum BankAccountType { monetary, savings }
+
 /// Datos de alta. El saldo inicial no es un ingreso ni un movimiento real.
 final class AccountDetails {
   factory AccountDetails({
@@ -11,6 +13,9 @@ final class AccountDetails {
     required DateTime openingDate,
     Money? creditLimit,
     String? lastFour,
+    BankAccountType? bankAccountType,
+    Money? secondaryOpeningBalance,
+    Money? secondaryCreditLimit,
   }) {
     final alias = name.trim();
     if (alias.isEmpty || alias.length > 60) {
@@ -32,6 +37,30 @@ final class AccountDetails {
       );
     }
     final digits = lastFour?.trim();
+    if (bankAccountType != null && type != AccountType.bank) {
+      throw ArgumentError(
+        'El tipo Monetaria o Ahorro corresponde a una cuenta bancaria.',
+        'bankAccountType',
+      );
+    }
+    if (secondaryOpeningBalance != null &&
+        (type != AccountType.creditCard ||
+            secondaryOpeningBalance.currency == openingBalance.currency ||
+            secondaryOpeningBalance.minorUnits < 0)) {
+      throw ArgumentError(
+        'La segunda deuda debe ser cero o positiva y usar la otra moneda.',
+        'secondaryOpeningBalance',
+      );
+    }
+    if (secondaryCreditLimit != null &&
+        (secondaryOpeningBalance == null ||
+            secondaryCreditLimit.currency != secondaryOpeningBalance.currency ||
+            secondaryCreditLimit.minorUnits < 0)) {
+      throw ArgumentError(
+        'Registra la segunda deuda y un límite cero o positivo en esa moneda.',
+        'secondaryCreditLimit',
+      );
+    }
     if (digits != null &&
         digits.isNotEmpty &&
         (type != AccountType.creditCard ||
@@ -52,6 +81,9 @@ final class AccountDetails {
       ),
       creditLimit: creditLimit,
       lastFour: digits == null || digits.isEmpty ? null : digits,
+      bankAccountType: bankAccountType,
+      secondaryOpeningBalance: secondaryOpeningBalance,
+      secondaryCreditLimit: secondaryCreditLimit,
     );
   }
 
@@ -62,6 +94,9 @@ final class AccountDetails {
     required this.openingDate,
     this.creditLimit,
     this.lastFour,
+    this.bankAccountType,
+    this.secondaryOpeningBalance,
+    this.secondaryCreditLimit,
   });
 
   final String name;
@@ -70,14 +105,39 @@ final class AccountDetails {
   final DateTime openingDate;
   final Money? creditLimit;
   final String? lastFour;
+  final BankAccountType? bankAccountType;
+  final Money? secondaryOpeningBalance;
+  final Money? secondaryCreditLimit;
+  List<Money> get openingBalances => [openingBalance, ?secondaryOpeningBalance];
+  Money? openingBalanceFor(Currency currency) {
+    for (final balance in openingBalances) {
+      if (balance.currency == currency) return balance;
+    }
+    return null;
+  }
 }
 
 final class Account {
-  Account({required this.id, required this.details, Money? currentBalance})
-    : currentBalance = currentBalance ?? details.openingBalance;
+  Account({
+    required this.id,
+    required this.details,
+    Money? currentBalance,
+    Money? secondaryCurrentBalance,
+  }) : currentBalance = currentBalance ?? details.openingBalance,
+       secondaryCurrentBalance =
+           secondaryCurrentBalance ?? details.secondaryOpeningBalance;
   final int id;
   final AccountDetails details;
   final Money currentBalance;
+  final Money? secondaryCurrentBalance;
+  List<Money> get currentBalances => [currentBalance, ?secondaryCurrentBalance];
+  Money? balanceFor(Currency currency) {
+    for (final balance in currentBalances) {
+      if (balance.currency == currency) return balance;
+    }
+    return null;
+  }
+
   bool get hasCreditInFavor =>
       details.type == AccountType.creditCard && currentBalance.minorUnits < 0;
   Money get displayBalance =>

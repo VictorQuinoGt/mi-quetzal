@@ -7,3 +7,10 @@ extension AccountTypeLabel on AccountType {
     AccountType.creditCard => 'Tarjeta de crédito',
   };
 }
+
+extension BankAccountTypeLabel on BankAccountType {
+  String get label => switch (this) {
+    BankAccountType.monetary => 'Monetario',
+    BankAccountType.savings => 'Ahorro',
+  };
+}

@@ -5,12 +5,31 @@ import 'package:mi_quetzal/domain/models/ledger_snapshot.dart';
 import 'package:mi_quetzal/domain/models/category.dart';
 import 'package:mi_quetzal/domain/models/movement.dart';
 import 'package:mi_quetzal/domain/rules/movement_rules.dart';
+import 'package:mi_quetzal/domain/rules/account_rules.dart';
 
 import 'fake_account_repository.dart';
 
 class FakeMovementRepository implements MovementRepository {
   FakeMovementRepository(this.accounts) {
     accounts.currentReader = () => snapshot.accounts;
+    accounts.validateAccounts = (values) {
+      for (final account in values) {
+        final original = accounts.stored.singleWhere((a) => a.id == account.id);
+        AccountRules.validateUpdate(
+          original,
+          account.details,
+          movements: stored,
+        );
+      }
+      LedgerSnapshot.calculate(
+        values,
+        stored,
+        debitCards: accounts.cards,
+        categories: categories,
+      );
+    };
+    accounts.validateDebitUpdate = (id, details) =>
+        AccountRules.validateDebitUpdate(id, details, stored);
   }
   final FakeAccountRepository accounts;
   final List<Movement> stored = [];

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/movement.dart';
 import '../../domain/models/account.dart';
+import '../../domain/models/money.dart';
 import '../core/page_content.dart';
 import 'movement_labels.dart';
 import 'movements_view_model.dart';
@@ -21,6 +22,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   int? _counterpartyId;
   int? _debitCardId;
   int? _categoryId;
+  Currency? _currency;
   late DateTime _date;
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       counterpartyAccountId: _counterpartyId,
       debitCardId: _debitCardId,
       categoryId: _categoryId,
+      currency: _currency,
       amount: _amount.text,
       description: _description.text,
       date: _date,
@@ -70,11 +73,14 @@ class _CreateMovementViewState extends State<CreateMovementView> {
           _type == MovementType.transfer || _type == MovementType.creditPayment;
       final origins = vm.originsFor(_type);
       final destinations = vm.destinationsFor(_type, _accountId);
-      final currency = vm
-          .accountById(_accountId)
-          ?.details
-          .openingBalance
-          .currency;
+      final selectedAccount = vm.accountById(_accountId);
+      final currencies =
+          selectedAccount?.details.openingBalances
+              .map((m) => m.currency)
+              .toList() ??
+          <Currency>[];
+      final currency =
+          _currency ?? selectedAccount?.details.openingBalance.currency;
       return PopScope(
         canPop: !vm.isSaving,
         child: Scaffold(
@@ -113,6 +119,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           _counterpartyId = null;
                           _debitCardId = null;
                           _categoryId = null;
+                          _currency = null;
                         }),
                 ),
                 const SizedBox(height: 16),
@@ -141,7 +148,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                       DropdownMenuItem(
                         value: account.id,
                         child: Text(
-                          '${account.details.name} · ${account.details.openingBalance.currency.name.toUpperCase()}',
+                          '${account.details.name} · ${account.details.openingBalances.map((m) => m.currency.code).join(' / ')}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -153,8 +160,32 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           _accountId = id;
                           _counterpartyId = null;
                           _debitCardId = null;
+                          _currency = vm
+                              .accountById(id)
+                              ?.details
+                              .openingBalance
+                              .currency;
                         }),
                 ),
+                if (currencies.length > 1) ...[
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<Currency>(
+                    key: ValueKey('currency-$_accountId'),
+                    initialValue: currency,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Moneda del movimiento',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final value in currencies)
+                        DropdownMenuItem(value: value, child: Text(value.code)),
+                    ],
+                    onChanged: vm.isSaving
+                        ? null
+                        : (value) => setState(() => _currency = value),
+                  ),
+                ],
                 if (_type == MovementType.expense &&
                     vm.accountById(_accountId)?.details.type ==
                         AccountType.bank &&

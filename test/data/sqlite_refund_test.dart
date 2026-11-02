@@ -122,7 +122,7 @@ void main() {
       expect(migrated[field], original[field], reason: field);
     }
     expect(migrated['original_movement_id'], isNull);
-    expect(await db.getVersion(), 5);
+    expect(await db.getVersion(), LocalDatabase.schemaVersion);
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     final after = await movements.createMovement(
       MovementDetails(

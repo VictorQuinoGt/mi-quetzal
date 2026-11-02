@@ -46,6 +46,8 @@ Si un pago aparece en ambas fuentes, vincular sus registros a una sola transfere
 
 Registrar saldo o deuda inicial con fecha anterior al primer movimiento importado y contrastar con estados de cuenta. Un histórico incompleto no permite reconstruir saldos definitivos. El límite de crédito no es dinero disponible.
 
+Una misma tarjeta de crédito puede mantener deuda, apertura y límite independientes en GTQ y USD. Cada movimiento conserva su moneda y afecta solo ese saldo; pagar USD no reduce deuda GTQ. La segunda apertura sin registrar no equivale a cero. Monetario/Ahorro identifica el tipo de cuenta bancaria, no su moneda. Editar una apertura exige validar nuevamente todo el historial sin alterar los movimientos originales.
+
 ## Secuencia de carga
 
 1. Seleccionar archivo y hoja, identificar encabezados y previsualizar filas.

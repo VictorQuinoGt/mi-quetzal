@@ -15,6 +15,9 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
   final accounts = accountRows.map((row) {
     final currency = Currency.values.byName(row['currency'] as String);
     final limit = row['credit_limit_minor'] as int?;
+    final other = currency == Currency.gtq ? Currency.usd : Currency.gtq;
+    final secondaryOpening = row['secondary_opening_minor'] as int?;
+    final secondaryLimit = row['secondary_credit_limit_minor'] as int?;
     return Account(
       id: row['id'] as int,
       details: AccountDetails(
@@ -24,6 +27,15 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
         openingDate: DateTime.parse(row['opening_date'] as String),
         creditLimit: limit == null ? null : Money(limit, currency),
         lastFour: row['last_four'] as String?,
+        bankAccountType: row['bank_account_type'] == null
+            ? null
+            : BankAccountType.values.byName(row['bank_account_type'] as String),
+        secondaryOpeningBalance: secondaryOpening == null
+            ? null
+            : Money(secondaryOpening, other),
+        secondaryCreditLimit: secondaryLimit == null
+            ? null
+            : Money(secondaryLimit, other),
       ),
     );
   }).toList();

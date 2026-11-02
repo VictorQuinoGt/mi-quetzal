@@ -34,7 +34,7 @@ abstract final class MovementRules {
       );
     }
     void validateAccount(Account account) {
-      if (account.details.openingBalance.currency != movement.amount.currency) {
+      if (account.details.openingBalanceFor(movement.amount.currency) == null) {
         throw const MovementValidationException(
           'counterparty',
           'Las cuentas deben usar la misma moneda. Las conversiones aún no están disponibles.',

@@ -8,8 +8,9 @@ import 'account_labels.dart';
 import 'accounts_view_model.dart';
 
 class CreateAccountView extends StatefulWidget {
-  const CreateAccountView({super.key, required this.viewModel});
+  const CreateAccountView({super.key, required this.viewModel, this.account});
   final AccountsViewModel viewModel;
+  final Account? account;
 
   @override
   State<CreateAccountView> createState() => _CreateAccountViewState();
@@ -20,6 +21,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   final _balance = TextEditingController();
   final _limit = TextEditingController();
   final _lastFour = TextEditingController();
+  final _secondaryBalance = TextEditingController();
+  final _secondaryLimit = TextEditingController();
+  BankAccountType? _bankAccountType = BankAccountType.monetary;
   AccountType _type = AccountType.bank;
   Currency _currency = Currency.gtq;
   late DateTime _date;
@@ -28,11 +32,31 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   void initState() {
     super.initState();
     _date = widget.viewModel.today;
+    if (widget.account case final account?) {
+      final details = account.details;
+      _name.text = details.name;
+      _type = details.type;
+      _currency = details.openingBalance.currency;
+      _balance.text = details.openingBalance.input;
+      _limit.text = details.creditLimit?.input ?? '';
+      _lastFour.text = details.lastFour ?? '';
+      _secondaryBalance.text = details.secondaryOpeningBalance?.input ?? '';
+      _secondaryLimit.text = details.secondaryCreditLimit?.input ?? '';
+      _bankAccountType = details.bankAccountType;
+      _date = details.openingDate;
+    }
   }
 
   @override
   void dispose() {
-    for (final controller in [_name, _balance, _limit, _lastFour]) {
+    for (final controller in [
+      _name,
+      _balance,
+      _limit,
+      _lastFour,
+      _secondaryBalance,
+      _secondaryLimit,
+    ]) {
       controller.dispose();
     }
     super.dispose();
@@ -40,7 +64,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
-    final saved = await widget.viewModel.createAccount(
+    final saved = await widget.viewModel.saveAccount(
+      editingId: widget.account?.id,
       name: _name.text,
       type: _type,
       currency: _currency,
@@ -48,6 +73,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       openingDate: _date,
       creditLimit: _limit.text,
       lastFour: _lastFour.text,
+      bankAccountType: _bankAccountType,
+      secondaryOpeningBalance: _secondaryBalance.text,
+      secondaryCreditLimit: _secondaryLimit.text,
     );
     if (saved && mounted) Navigator.of(context).pop(true);
   }
@@ -70,11 +98,15 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       builder: (context, _) {
         final vm = widget.viewModel;
         final credit = _type == AccountType.creditCard;
+        final editing = widget.account != null;
+        final otherCurrency = _currency == Currency.gtq
+            ? Currency.usd
+            : Currency.gtq;
         return PopScope(
           canPop: !vm.isSaving,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Nueva cuenta'),
+              title: Text(editing ? 'Editar cuenta' : 'Nueva cuenta'),
               automaticallyImplyLeading: !vm.isSaving,
             ),
             body: SafeArea(
@@ -114,11 +146,40 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                       for (final type in AccountType.values)
                         DropdownMenuItem(value: type, child: Text(type.label)),
                     ],
-                    onChanged: vm.isSaving
+                    onChanged: vm.isSaving || editing
                         ? null
                         : (value) => setState(() => _type = value!),
                   ),
                   const SizedBox(height: 20),
+                  if (_type == AccountType.bank) ...[
+                    DropdownButtonFormField<BankAccountType>(
+                      initialValue: _bankAccountType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo de cuenta bancaria',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        if (editing && _bankAccountType == null)
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Sin especificar'),
+                          ),
+                        const DropdownMenuItem(
+                          value: BankAccountType.monetary,
+                          child: Text('Monetario'),
+                        ),
+                        const DropdownMenuItem(
+                          value: BankAccountType.savings,
+                          child: Text('Ahorro'),
+                        ),
+                      ],
+                      onChanged: vm.isSaving
+                          ? null
+                          : (value) => setState(() => _bankAccountType = value),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   DropdownButtonFormField<Currency>(
                     initialValue: _currency,
                     isExpanded: true,
@@ -137,11 +198,17 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                           ),
                         ),
                     ],
-                    onChanged: vm.isSaving
+                    onChanged: vm.isSaving || editing
                         ? null
                         : (value) => setState(() => _currency = value!),
                   ),
                   const SizedBox(height: 20),
+                  if (editing) ...[
+                    const Text(
+                      'Editas la apertura; el saldo actual se recalcula con todos los movimientos. El tipo y la moneda principal se conservan.',
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextField(
                     controller: _balance,
                     enabled: !vm.isSaving,
@@ -180,6 +247,39 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                       ),
                     ),
                   if (credit) ...[
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _secondaryBalance,
+                      enabled: !vm.isSaving,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Deuda inicial ${otherCurrency.code}',
+                        prefixText: '${otherCurrency.code} ',
+                        helperText: 'Segunda moneda. Deja vacío si aún no la registras; escribe 0 si no tienes deuda.',
+                        helperMaxLines: 3,
+                        errorMaxLines: 3,
+                        errorText: vm.fieldErrors['secondaryOpeningBalance'],
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _secondaryLimit,
+                      enabled: !vm.isSaving,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText:
+                            'Límite de crédito ${otherCurrency.code} (opcional)',
+                        prefixText: '${otherCurrency.code} ',
+                        errorMaxLines: 3,
+                        errorText: vm.fieldErrors['secondaryCreditLimit'],
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _limit,

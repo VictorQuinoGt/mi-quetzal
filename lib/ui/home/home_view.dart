@@ -26,7 +26,7 @@ class HomeView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: AppTheme.forest,
+            color: AppTheme.navy,
             borderRadius: BorderRadius.circular(28),
           ),
           child: Column(
@@ -34,7 +34,7 @@ class HomeView extends StatelessWidget {
             children: [
               const Icon(
                 Icons.spa_outlined,
-                color: Color(0xFFD5ECA4),
+                color: Color(0xFFFFB4BC),
                 size: 36,
               ),
               const SizedBox(height: 20),
@@ -49,7 +49,7 @@ class HomeView extends StatelessWidget {
               const Text(
                 'Un lugar para organizar tus cuentas, entender tus gastos '
                 'y dar forma a tus planes.',
-                style: TextStyle(color: Color(0xFFE0EDE4), fontSize: 16),
+                style: TextStyle(color: Color(0xFFE1EAFF), fontSize: 16),
               ),
               const SizedBox(height: 24),
               FilledButton.tonalIcon(

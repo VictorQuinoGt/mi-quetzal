@@ -4,7 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 class LocalDatabase {
   LocalDatabase({required this.factory, this.path});
 
-  static const schemaVersion = 5;
+  static const schemaVersion = 6;
   final DatabaseFactory factory;
   final String? path;
   Future<Database>? _opening;
@@ -138,6 +138,17 @@ class LocalDatabase {
       ''');
     }
     if (from < 5 && to >= 5) await _addRefunds(db);
+    if (from < 6 && to >= 6) {
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN bank_account_type TEXT CHECK(bank_account_type IS NULL OR (type = 'bank' AND bank_account_type IN ('monetary', 'savings')))",
+      );
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN secondary_opening_minor INTEGER CHECK(secondary_opening_minor IS NULL OR (type = 'creditCard' AND secondary_opening_minor BETWEEN 0 AND 9007199254740991))",
+      );
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN secondary_credit_limit_minor INTEGER CHECK(secondary_credit_limit_minor IS NULL OR (secondary_opening_minor IS NOT NULL AND secondary_credit_limit_minor BETWEEN 0 AND 9007199254740991))",
+      );
+    }
   }
 
   static Future<void> _addRefunds(Database db) async {

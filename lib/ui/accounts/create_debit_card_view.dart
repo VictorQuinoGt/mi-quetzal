@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/models/debit_card.dart';
+
 import '../core/page_content.dart';
 import 'accounts_view_model.dart';
 
 class CreateDebitCardView extends StatefulWidget {
-  const CreateDebitCardView({super.key, required this.viewModel});
+  const CreateDebitCardView({super.key, required this.viewModel, this.card});
   final AccountsViewModel viewModel;
+  final DebitCard? card;
   @override
   State<CreateDebitCardView> createState() => _CreateDebitCardViewState();
 }
@@ -16,6 +19,14 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
   final _lastFour = TextEditingController();
   int? _accountId;
   @override
+  void initState() {
+    super.initState();
+    _name.text = widget.card?.details.name ?? '';
+    _lastFour.text = widget.card?.details.lastFour ?? '';
+    _accountId = widget.card?.details.accountId;
+  }
+
+  @override
   void dispose() {
     _name.dispose();
     _lastFour.dispose();
@@ -24,7 +35,8 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
-    final saved = await widget.viewModel.createDebitCard(
+    final saved = await widget.viewModel.saveDebitCard(
+      editingId: widget.card?.id,
       name: _name.text,
       accountId: _accountId,
       lastFour: _lastFour.text,
@@ -41,8 +53,10 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
         canPop: !vm.isSaving,
         child: Scaffold(
           appBar: AppBar(
-            title: const Text(
-              'Vincular tarjeta de débito',
+            title: Text(
+              widget.card == null
+                  ? 'Vincular tarjeta de débito'
+                  : 'Editar tarjeta de débito',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -139,7 +153,13 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.link),
-                  label: Text(vm.isSaving ? 'Guardando…' : 'Vincular tarjeta'),
+                  label: Text(
+                    vm.isSaving
+                        ? 'Guardando…'
+                        : widget.card == null
+                        ? 'Vincular tarjeta'
+                        : 'Guardar tarjeta',
+                  ),
                 ),
               ],
             ),
