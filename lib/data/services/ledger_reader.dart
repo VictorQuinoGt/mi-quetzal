@@ -1,12 +1,14 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../domain/models/account.dart';
+import '../../domain/models/debit_card.dart';
 import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 
 Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
   final accountRows = await db.query('accounts', orderBy: 'id ASC');
+  final cardRows = await db.query('debit_cards', orderBy: 'id ASC');
   final movementRows = await db.query('movements', orderBy: 'id ASC');
   final accounts = accountRows.map((row) {
     final currency = Currency.values.byName(row['currency'] as String);
@@ -31,6 +33,7 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
             type: MovementType.values.byName(row['type'] as String),
             accountId: row['account_id'] as int,
             counterpartyAccountId: row['counterparty_account_id'] as int?,
+            debitCardId: row['debit_card_id'] as int?,
             amount: Money(
               row['amount_minor'] as int,
               Currency.values.byName(row['currency'] as String),
@@ -41,5 +44,17 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
         ),
       )
       .toList();
-  return LedgerSnapshot.calculate(accounts, movements);
+  final debitCards = cardRows
+      .map(
+        (row) => DebitCard(
+          id: row['id'] as int,
+          details: DebitCardDetails(
+            name: row['name'] as String,
+            accountId: row['account_id'] as int,
+            lastFour: row['last_four'] as String?,
+          ),
+        ),
+      )
+      .toList();
+  return LedgerSnapshot.calculate(accounts, movements, debitCards: debitCards);
 }

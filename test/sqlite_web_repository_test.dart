@@ -4,6 +4,7 @@ import 'package:mi_quetzal/data/repositories/sqlite_account_repository.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_movement_repository.dart';
 import 'package:mi_quetzal/data/services/local_database.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
+import 'package:mi_quetzal/domain/models/debit_card.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
 import 'package:mi_quetzal/domain/models/movement.dart';
 import 'package:sqflite_common/sqlite_api.dart';
@@ -11,6 +12,8 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'domain/money_test.dart' as money_tests;
 import 'domain/movement_rules_test.dart' as movement_rules_tests;
+import 'domain/debit_card_test.dart' as debit_card_tests;
+import 'domain/movement_filter_test.dart' as movement_filter_tests;
 
 void main() {
   // En Flutter 3.47/Windows, el ejecutor web pierde separadores en rutas anidadas.
@@ -18,6 +21,8 @@ void main() {
   if (kIsWeb) {
     money_tests.main();
     movement_rules_tests.main();
+    debit_card_tests.main();
+    movement_filter_tests.main();
   }
   test('SQLite web conserva monedas e importes al cerrar y abrir', () async {
     final factory = createDatabaseFactoryFfiWeb(
@@ -120,7 +125,108 @@ void main() {
         snapshot.movements.where((m) => m.details.isExpense),
         hasLength(1),
       );
-      expect(await (await database.database).getVersion(), 2);
+      expect(
+        await (await database.database).getVersion(),
+        LocalDatabase.schemaVersion,
+      );
+    },
+    skip: !kIsWeb,
+  );
+  test(
+    'SQLite web migra desde v2 y conserva compras de dos tarjetas de un banco',
+    () async {
+      final factory = createDatabaseFactoryFfiWeb(
+        options: SqfliteFfiWebOptions(
+          sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+          sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+          indexedDbName: 'mi_quetzal_browser_tests',
+        ),
+      );
+      final path = 'test_debit_${DateTime.now().microsecondsSinceEpoch}.db';
+      final database = LocalDatabase(factory: factory, path: path);
+      addTearDown(() async {
+        await database.close();
+        await factory.deleteDatabase(path);
+      });
+      final old = await factory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 2,
+          onCreate: (db, version) => LocalDatabase.migrate(db, 0, version),
+        ),
+      );
+      await old.insert('accounts', {
+        'id': 42,
+        'name': 'Banco anterior sintético',
+        'type': 'bank',
+        'currency': 'gtq',
+        'opening_minor': 1000,
+        'opening_date': '2026-10-01',
+      });
+      await old.insert('movements', {
+        'id': 7,
+        'type': 'expense',
+        'account_id': 42,
+        'amount_minor': 100,
+        'currency': 'gtq',
+        'occurred_on': '2026-11-01',
+        'description': 'Compra anterior sintética',
+      });
+      await old.close();
+      final accounts = SqliteAccountRepository(database);
+      final movements = SqliteMovementRepository(
+        database,
+        now: () => DateTime(2026, 11, 2),
+      );
+      final before = await movements.getSnapshot();
+      expect(before.movements.single.details.debitCardId, isNull);
+      expect(before.accounts.single.currentBalance.minorUnits, 900);
+      final first = await accounts.createDebitCard(
+        DebitCardDetails(
+          name: 'Débito sintético',
+          accountId: 42,
+          lastFour: '0042',
+        ),
+      );
+      final second = await accounts.createDebitCard(
+        DebitCardDetails(name: 'Otro débito sintético', accountId: 42),
+      );
+      for (final card in [first, second]) {
+        await movements.createMovement(
+          MovementDetails(
+            type: MovementType.expense,
+            accountId: 42,
+            debitCardId: card.id,
+            amount: Money(100, Currency.gtq),
+            date: DateTime(2026, 11, 2),
+            description: 'Compra con débito sintética',
+          ),
+        );
+      }
+      final db = await database.database;
+      await expectLater(
+        db.insert('movements', {
+          'type': 'income',
+          'account_id': 42,
+          'debit_card_id': first.id,
+          'amount_minor': 100,
+          'currency': 'gtq',
+          'occurred_on': '2026-11-02',
+          'description': 'Prueba inválida sintética',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+      await database.close();
+      final after = await movements.getSnapshot();
+      expect(after.accounts, hasLength(1));
+      expect(after.accounts.single.currentBalance.minorUnits, 700);
+      expect(after.debitCards, hasLength(2));
+      expect(after.movements.map((m) => m.details.debitCardId), [
+        second.id,
+        first.id,
+        null,
+      ]);
+      expect(await (await database.database).getVersion(), 3);
     },
     skip: !kIsWeb,
   );

@@ -22,11 +22,17 @@ class SqliteMovementRepository implements MovementRepository {
     final db = await _database.database;
     return db.transaction((transaction) async {
       final previous = await readLedger(transaction);
-      MovementRules.validateRegistration(details, previous.accounts, _now());
+      MovementRules.validateRegistration(
+        details,
+        previous.accounts,
+        _now(),
+        debitCards: previous.debitCards,
+      );
       await transaction.insert('movements', {
         'type': details.type.name,
         'account_id': details.accountId,
         'counterparty_account_id': details.counterpartyAccountId,
+        'debit_card_id': details.debitCardId,
         'amount_minor': details.amount.minorUnits,
         'currency': details.amount.currency.name,
         'occurred_on': details.date.toIso8601String().substring(0, 10),

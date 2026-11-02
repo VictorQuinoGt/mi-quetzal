@@ -10,10 +10,12 @@ class AccountsView extends StatelessWidget {
     super.key,
     required this.viewModel,
     required this.onCreate,
+    required this.onLinkDebitCard,
   });
 
   final AccountsViewModel viewModel;
   final VoidCallback onCreate;
+  final VoidCallback onLinkDebitCard;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,21 @@ class AccountsView extends StatelessWidget {
                 label: const Text('Reintentar'),
               ),
             ] else ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: viewModel.bankAccounts.isEmpty
+                      ? null
+                      : onLinkDebitCard,
+                  icon: const Icon(Icons.link),
+                  label: const Text('Vincular débito'),
+                ),
+              ),
+              if (viewModel.bankAccounts.isEmpty)
+                const Text(
+                  'Para vincular débito, primero crea una cuenta bancaria.',
+                ),
+              const SizedBox(height: 20),
               if (viewModel.accounts.isEmpty)
                 Card(
                   child: Padding(
@@ -81,8 +98,41 @@ class AccountsView extends StatelessWidget {
                   const SizedBox(height: 16),
                 ],
               const SizedBox(height: 20),
+              if (viewModel.debitCards.isNotEmpty) ...[
+                Text('Tarjetas de débito', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 16),
+                for (final card in viewModel.debitCards) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            card.details.name,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Débito${card.details.lastFour == null ? '' : ' · •••• ${card.details.lastFour}'}',
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Vinculada a: ${viewModel.accountById(card.details.accountId)!.details.name}',
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Comparte el saldo y la moneda de su cuenta bancaria.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
               const Text(
-                'Los saldos se calculan con la apertura y los movimientos registrados. Las tarjetas de débito se vincularán a su cuenta bancaria en una próxima versión.',
+                'Los saldos se calculan con la apertura y todos los movimientos registrados. Las tarjetas de débito no tienen fondos independientes.',
               ),
             ],
           ],

@@ -15,6 +15,7 @@ final class MovementDetails {
     required MovementType type,
     required int accountId,
     int? counterpartyAccountId,
+    int? debitCardId,
     required Money amount,
     required DateTime date,
     required String description,
@@ -46,10 +47,17 @@ final class MovementDetails {
         'El origen y el destino deben ser diferentes.',
       );
     }
+    if (debitCardId != null && type != MovementType.expense) {
+      throw const MovementValidationException(
+        'debitCard',
+        'La tarjeta de débito solo se selecciona para compras o gastos.',
+      );
+    }
     return MovementDetails._(
       type: type,
       accountId: accountId,
       counterpartyAccountId: counterpartyAccountId,
+      debitCardId: debitCardId,
       amount: amount,
       date: DateTime(date.year, date.month, date.day),
       description: text,
@@ -59,6 +67,7 @@ final class MovementDetails {
     required this.type,
     required this.accountId,
     required this.counterpartyAccountId,
+    required this.debitCardId,
     required this.amount,
     required this.date,
     required this.description,
@@ -66,6 +75,7 @@ final class MovementDetails {
   final MovementType type;
   final int accountId;
   final int? counterpartyAccountId;
+  final int? debitCardId;
   final Money amount;
   final DateTime date;
   final String description;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/movement.dart';
 import '../core/page_content.dart';
 import 'movement_labels.dart';
+import 'movement_filters.dart';
 import 'movements_view_model.dart';
 
 class MovementsView extends StatelessWidget {
@@ -81,11 +82,22 @@ class MovementsView extends StatelessWidget {
                 ),
               ),
             ),
-          ] else
-            for (final movement in viewModel.movements) ...[
+          ] else ...[
+            MovementFilters(viewModel: viewModel),
+            if (viewModel.visibleMovements.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'No hay movimientos que coincidan con los filtros.',
+                  ),
+                ),
+              ),
+            for (final movement in viewModel.visibleMovements) ...[
               _MovementCard(movement: movement, viewModel: viewModel),
               const SizedBox(height: 16),
             ],
+          ],
         ],
       );
     },
@@ -102,6 +114,7 @@ class _MovementCard extends StatelessWidget {
     final details = movement.details;
     final origin = viewModel.accountById(details.accountId)!;
     final other = viewModel.accountById(details.counterpartyAccountId);
+    final debitCard = viewModel.debitCardById(details.debitCardId);
     final theme = Theme.of(context);
     return Card(
       child: Padding(
@@ -122,6 +135,12 @@ class _MovementCard extends StatelessWidget {
               '${origin.details.name}${other == null ? '' : ' → ${other.details.name}'}',
             ),
             const SizedBox(height: 4),
+            if (debitCard != null) ...[
+              Text(
+                'Débito: ${debitCard.details.name}${debitCard.details.lastFour == null ? '' : ' · •••• ${debitCard.details.lastFour}'}',
+              ),
+              const SizedBox(height: 4),
+            ],
             Text(
               MaterialLocalizations.of(context).formatMediumDate(details.date),
             ),

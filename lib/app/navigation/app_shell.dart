@@ -5,6 +5,7 @@ import '../../data/repositories/movement_repository.dart';
 import '../../ui/accounts/accounts_view.dart';
 import '../../ui/accounts/accounts_view_model.dart';
 import '../../ui/accounts/create_account_view.dart';
+import '../../ui/accounts/create_debit_card_view.dart';
 import '../../ui/home/home_view.dart';
 import '../../ui/movements/movements_view.dart';
 import '../../ui/movements/movements_view_model.dart';
@@ -79,6 +80,27 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  Future<void> _linkDebitCard() async {
+    if (_accountsViewModel.status != AccountsStatus.ready ||
+        _accountsViewModel.bankAccounts.isEmpty) {
+      return;
+    }
+    _accountsViewModel.startCreate();
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) =>
+            CreateDebitCardView(viewModel: _accountsViewModel),
+      ),
+    );
+    if (created == true && mounted) {
+      await _movementsViewModel.load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tarjeta de débito vinculada')),
+      );
+    }
+  }
+
   static const _destinations = [
     (section: AppSection.home, label: 'Inicio', icon: Icons.home_outlined),
     (
@@ -116,6 +138,7 @@ class _AppShellState extends State<AppShell> {
     AppSection.accounts => AccountsView(
       viewModel: _accountsViewModel,
       onCreate: _createAccount,
+      onLinkDebitCard: _linkDebitCard,
     ),
     AppSection.planning => const PlanningView(),
   };

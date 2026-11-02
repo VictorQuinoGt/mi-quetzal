@@ -84,7 +84,10 @@ void main() {
     expect(snapshot.accounts.single.id, 42);
     expect(snapshot.accounts.single.currentBalance, Money(12345, Currency.gtq));
     expect(snapshot.movements, isEmpty);
-    expect(await (await database.database).getVersion(), 2);
+    expect(
+      await (await database.database).getVersion(),
+      LocalDatabase.schemaVersion,
+    );
     await movements.createMovement(operation(MovementType.expense, 42, 100));
     expect(
       (await accounts.getAccounts()).single.currentBalance,

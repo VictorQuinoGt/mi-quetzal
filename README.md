@@ -17,9 +17,11 @@ Aplicación Flutter con tema propio e interfaz en español:
 - Persistencia SQLite de cuentas y recuperación al volver a abrir la aplicación.
 - Compras/gastos, ingresos, transferencias y pagos de tarjeta con historial persistente.
 - Saldos actuales calculados desde la apertura y los movimientos, sin mezclar monedas.
-- Migración al esquema 2 que conserva las cuentas de la versión anterior.
+- Tarjetas de débito vinculadas a bancos, sin saldos independientes, y compras identificadas por tarjeta.
+- Filtros de historial por cuenta, operación, moneda, descripción y rango de fechas.
+- Migración al esquema 3 que conserva las cuentas y movimientos anteriores.
 
-Cuentas muestra saldo o deuda actual junto con su apertura. Un pago mayor a la deuda deja saldo a favor, mostrado por separado del límite de crédito. Todavía no hay edición/borrado, vinculación de tarjetas de débito, devoluciones vinculadas, adelantos de crédito, conversiones, filtros de historial, resúmenes mensuales, presupuestos ni importación. No se cargan datos de ejemplo ni saldos ficticios.
+Cuentas muestra saldo o deuda actual junto con su apertura. Un pago mayor a la deuda deja saldo a favor, mostrado por separado del límite de crédito. Todavía no hay edición/borrado, categorías, devoluciones vinculadas, adelantos de crédito, conversiones, resúmenes mensuales, presupuestos ni importación. No se cargan datos de ejemplo ni saldos ficticios.
 
 ## Desarrollo
 
@@ -78,6 +80,22 @@ Las operaciones requieren importe positivo y fecha entre la apertura de las cuen
 
 El registro de pagos con origen desconocido se abordará con la importación y conciliación. Por ahora, el formulario exige una cuenta de origen. Una transferencia o pago se guarda como una sola operación vinculada; si la escritura o la validación del historial falla, se revierte todo. Las compras legítimas repetidas mantienen identidades diferentes.
 
+## Probar débito y filtros en el teléfono
+
+Instalar la APK como actualización, sin desinstalar la anterior ni borrar datos, para comprobar la migración.
+
+1. En Cuentas, crear una nueva cuenta bancaria sintética «Banco débito prueba», GTQ y saldo inicial `1000`.
+2. Pulsar «Vincular débito». Crear «Débito principal» con últimos cuatro `0042` y vincularla al banco anterior. Se puede añadir otra tarjeta «Débito adicional» a la misma cuenta.
+3. En «Registrar», elegir compra/gasto y la cuenta «Banco débito prueba». Seleccionar «Débito principal» en el campo opcional de tarjeta y registrar `12.50` con descripción «Compra débito prueba».
+4. Registrar otra compra de `7.50` con «Débito adicional». La cuenta bancaria debe mostrar `GTQ 980.00`. Las tarjetas no muestran ni agregan saldos propios.
+5. En Movimientos, filtrar por el banco, compra/gasto y GTQ. Buscar «débito» y seleccionar un rango de fechas que incluya ambas compras. Deben aparecer dos operaciones con su tarjeta identificada.
+6. Cambiar a USD manteniendo la cuenta GTQ: debe aparecer el estado sin coincidencias. Consultar Cuentas y comprobar que el saldo sigue en `GTQ 980.00`.
+7. Volver a Movimientos y pulsar «Limpiar filtros» para recuperar todo el historial. Cerrar y volver a abrir la app: las tarjetas y compras deben conservarse.
+
+Débito se registra con alias y últimos cuatro opcionales. Solo puede vincularse a una cuenta bancaria existente; la moneda se toma de esa cuenta. Varias tarjetas pueden compartir el banco. En compras, seleccionar una tarjeta es opcional; cambiar de cuenta o tipo de operación limpia esa selección. La identificación de tarjeta de débito se admite únicamente en compras/gastos. Los retiros pueden registrarse como transferencia banco→efectivo; identificar su tarjeta queda pendiente.
+
+Los filtros se combinan, mantienen el orden del historial y nunca recalculan saldos con una lista parcial. El filtro por cuenta incluye origen y destino de transferencias/pagos. La búsqueda en descripción es literal y no distingue mayúsculas; los extremos del rango de fechas son inclusivos. Se conservan al navegar o recargar datos, pero se reinician al abrir una nueva sesión de la app.
+
 ## Codex y arquitectura
 
 Leer [AGENTS.md](AGENTS.md) antes de cambiar el proyecto. Define responsabilidades MVVM, reglas financieras, privacidad y comprobaciones.
@@ -124,9 +142,9 @@ Cuando cambien plugins o integración Android:
 flutter build apk --debug
 ```
 
-Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito, pagos sin doble gasto, transferencias, saldo a favor, validaciones, estados, envíos repetidos, fallos de escritura y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migración desde esquema 1 y fallos de migración sin borrar datos. Las pruebas de SQLite web se omiten en la ejecución nativa y se ejecutan mediante el comando explícito de Chrome. Su archivo está en la raíz de `test/` para evitar el escape incorrecto de rutas anidadas del ejecutor de Flutter 3.47 en Windows; agrupa también las pruebas monetarias y reglas de movimientos en JavaScript.
+Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, validaciones, estados, envíos repetidos, fallos de escritura y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1 y 2 y fallos de migración sin borrar datos. Las pruebas de SQLite web se omiten en la ejecución nativa y se ejecutan mediante el comando explícito de Chrome. Su archivo está en la raíz de `test/` para evitar el escape incorrecto de rutas anidadas del ejecutor de Flutter 3.47 en Windows; agrupa también las pruebas monetarias, débito y filtros en JavaScript.
 
-Verificación del incremento de movimientos: formato y análisis sin incidencias, 67 pruebas nativas aprobadas (dos exclusivas de web omitidas), 16 pruebas en Chrome aprobadas y compilaciones web y APK debug correctas. Se comprobó que la APK contiene el formulario y el modelo de movimientos nuevos.
+Verificación del incremento de débito y filtros: formato y análisis sin incidencias, 100 pruebas nativas y 27 en Chrome aprobadas, y compilaciones APK debug y web correctas. Las tres pruebas exclusivas de SQLite web se omiten al ejecutarlas en el entorno nativo. Los nuevos flujos incluyen teclado y texto ampliado a 320 px.
 
 La prueba física en teléfono debe realizarse con los pasos anteriores; no se ha ejecutado desde este entorno. Los cambios solo documentales o de Git requieren revisar diff y patrones afectados, sin compilar la app. No existe todavía un flujo CI configurado.
 
@@ -137,10 +155,10 @@ La prueba física en teléfono debe realizarse con los pasos anteriores; no se h
 - `sqflite_common_ffi` permite probar el mismo repositorio con SQLite real en la computadora.
 - `path` compone la ruta local y `flutter_localizations` presenta controles y fechas en español.
 
-El esquema actual es versión 2, tablas `accounts` y `movements`, con identificadores enteros estables, restricciones, claves foráneas activadas y altas transaccionales. La apertura se mantiene en cuentas; los saldos actuales se reconstruyen en el dominio sin sobrescribirla. La migración añade movimientos e índice de fecha sin borrar cuentas. Las futuras migraciones deben conservar los datos. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
+El esquema actual es versión 3, tablas `accounts`, `movements` y `debit_cards`, con identificadores estables, restricciones, claves foráneas activadas y altas transaccionales. La apertura se mantiene en cuentas; los saldos actuales se reconstruyen en el dominio sin sobrescribirla. La migración 3 añade tarjetas y la referencia opcional `debit_card_id` en movimientos; los movimientos anteriores conservan esa referencia nula. Los disparadores SQL impiden vincular débito a cuentas no bancarias o usar una tarjeta con otra cuenta. Las futuras migraciones deben conservar los datos. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
 
 ## Próximo incremento
 
-Vincular tarjetas de débito a cuentas bancarias y añadir categorías, filtros y resúmenes por moneda. Después incorporar devoluciones vinculadas y conciliación. No cargar históricos reales antes de implementar y comprobar su importación.
+Añadir categorías y resúmenes por moneda. Después incorporar devoluciones vinculadas y conciliación. No cargar históricos reales antes de implementar y comprobar su importación.
 
 El applicationId `com.example.mi_quetzal`, nombre Android de plantilla y firma release quedan pendientes antes de distribuir.

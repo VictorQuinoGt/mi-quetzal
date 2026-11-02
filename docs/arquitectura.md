@@ -2,7 +2,7 @@
 
 ## Decisión y estado actual
 
-La aplicación utiliza Flutter/Dart para Android, con soporte web para desarrollar y comprobar la interfaz sin Android Studio. Se adopta MVVM. Están implementados cuentas, compras/gastos, ingresos, transferencias y pagos de tarjeta con persistencia SQLite y saldos derivados. Tarjetas de débito, devoluciones, planificación e importación siguen pendientes.
+La aplicación utiliza Flutter/Dart para Android, con soporte web para desarrollar y comprobar la interfaz sin Android Studio. Se adopta MVVM. Están implementados cuentas, tarjetas de débito vinculadas, compras/gastos, ingresos, transferencias, pagos de tarjeta y filtros de historial, con persistencia SQLite y saldos derivados. Categorías, devoluciones, planificación e importación siguen pendientes.
 
 El entorno revisado utiliza Flutter 3.47.0 y Dart 3.13.0. `pubspec.yaml` declara Dart `^3.13.0`. Estas versiones describen la revisión inicial y no autorizan actualizaciones automáticas.
 
@@ -28,9 +28,9 @@ Implementado en este incremento:
 
 - `main.dart` compone una `LocalDatabase` compartida por `SqliteAccountRepository` y `SqliteMovementRepository`, inyectados en `MiQuetzalApp`.
 - `app/navigation/` contiene `AppSection`, `AppShellViewModel` y `AppShell`. El ViewModel conserva la sección seleccionada y notifica sus cambios.
-- `ui/accounts/` contiene listado, formulario y `AccountsViewModel`, que recibe `AccountRepository` por constructor. Coordina carga, alta, errores y bloqueo de envíos repetidos. Las vistas solo recopilan entradas y representan el estado.
-- `domain/models/` contiene dinero, cuentas, movimientos y `LedgerSnapshot`. `domain/rules/movement_rules.dart` centraliza las validaciones y efectos de cada operación, sin Flutter ni SQL.
-- `ui/movements/` contiene listado, formulario, etiquetas y `MovementsViewModel`, que recibe `MovementRepository`. Maneja carga, cuentas compatibles, validación de entradas, guardado y errores.
+- `ui/accounts/` contiene listado, formularios de cuenta/débito y `AccountsViewModel`, que recibe `AccountRepository`. Coordina carga, alta, vinculación de tarjetas, errores y bloqueo de envíos repetidos. Las vistas solo recopilan entradas y representan el estado.
+- `domain/models/` contiene dinero, cuentas, tarjetas de débito, movimientos, `MovementFilter` y `LedgerSnapshot`. `domain/rules/movement_rules.dart` centraliza las validaciones y efectos de cada operación, sin Flutter ni SQL.
+- `ui/movements/` contiene listado, formulario, filtros y `MovementsViewModel`, que recibe `MovementRepository`. Maneja carga, cuentas/tarjetas compatibles, validación, guardado, filtros y errores.
 - `data/repositories/` contiene el contrato de cuentas y su implementación SQLite. El repositorio asigna identificadores persistentes y guarda los datos en una transacción.
 - `data/services/` abre la base, activa claves foráneas y aplica migraciones versionadas; selecciona la fábrica nativa/web por importación condicional.
 - `ui/home/` y `ui/planning/` mantienen sus vistas de presentación. Las introductorias no necesitan repositorios hasta que existan operaciones propias.
@@ -65,7 +65,7 @@ Cada ViewModel expone carga, vacío, datos y error. La View no interpreta excepc
 
 SQLite está implementado para cuentas y movimientos mediante `sqflite` en Android. La adaptación web `sqflite_common_ffi_web` persiste en IndexedDB y es experimental; requiere generar `sqlite3.wasm` y `sqflite_sw.js` mediante `tool/prepare_web.ps1`. Sus archivos generados no se versionan. En desarrollo se mantiene el puerto 5353 para conservar el origen del almacenamiento. No hay sincronización entre plataformas.
 
-`LocalDatabase` conserva una sola apertura y permite reintentar tras un fallo. El esquema 1 crea `accounts`. El esquema 2 añade `movements` e índice por fecha, con referencias a cuenta principal y contraparte opcional. `onCreate` y `onUpgrade` llaman a migraciones dentro de la transacción de sqflite; un downgrade falla sin borrar la base. Las operaciones de alta usan parámetros y una transacción. No se ha implementado reparación ni restauración de bases dañadas.
+`LocalDatabase` conserva una sola apertura y permite reintentar tras un fallo. El esquema 1 crea `accounts`. El esquema 2 añade `movements` e índice por fecha. El esquema 3 añade `debit_cards` y la columna opcional `movements.debit_card_id`; las filas existentes permanecen intactas con tarjeta nula. Claves foráneas y disparadores validan vínculos bancarios y coincidencia tarjeta/cuenta; una tarjeta usada no se puede reasignar a otro banco mediante SQL, ni transformar su banco en efectivo/crédito. `onCreate` y `onUpgrade` ejecutan migraciones transaccionales; un downgrade falla sin borrar la base. No hay reparación ni restauración de bases dañadas.
 
 Una transferencia o pago es una sola fila con dos referencias de cuenta y una identidad común. `SqliteMovementRepository` lee el estado, valida la operación, inserta la fila y reconstruye `LedgerSnapshot` antes del commit, usando solo el objeto transacción. Ante error se revierte la operación completa. Los repositorios comparten `ledger_reader.dart` para obtener cuentas e historial consistentes. No se almacenan saldos actuales duplicados en SQL.
 
@@ -73,7 +73,9 @@ Una transferencia o pago es una sola fila con dos referencias de cuenta y una id
 
 Las compras con fondos reducen saldo; con crédito aumentan deuda. Los ingresos solo se aplican a efectivo/banco. Transferencias y pagos no se clasifican como ingreso ni gasto. Los pagos exigen origen de fondos y destino de crédito; las transferencias excluyen crédito. Cada cuenta involucrada debe usar la moneda de la operación y tener apertura no posterior a ella. Al registrar se rechazan fechas futuras. No se implementan conversiones ni pagos de origen desconocido en este formulario.
 
-`AccountDetails` representa el alta: alias, tipo efectivo/banco/crédito, saldo o deuda inicial, moneda y fecha. Crédito admite límite y últimos cuatro opcionales; una deuda superior al límite no se rechaza. Las tarjetas de débito se modelarán aparte, referenciando cuentas bancarias. Los identificadores enteros no dependen del alias ni de últimos dígitos; se permiten alias repetidos.
+`AccountDetails` representa el alta: alias, tipo efectivo/banco/crédito, saldo o deuda inicial, moneda y fecha. Crédito admite límite y últimos cuatro opcionales; una deuda superior al límite no se rechaza. `DebitCardDetails` contiene alias, cuenta bancaria y últimos cuatro opcionales; no define saldo ni moneda. `AccountRepository` gestiona su alta transaccional y consulta. `LedgerSnapshot` conserva las tarjetas aparte de las cuentas, valida sus vínculos y usa `MovementRules` para comprobar la tarjeta opcional de una compra. El único efecto es reducir el saldo bancario una vez. Los identificadores no dependen del alias ni de últimos dígitos; se permiten alias repetidos.
+
+`MovementFilter` aplica descripción literal sin distinción de mayúsculas, cuenta (origen o contraparte), operación, moneda y fechas inclusivas. Filtra la instantánea completa sin escribir datos ni afectar saldos. `MovementsViewModel` conserva los criterios al navegar, recargar o guardar; son efímeros al reiniciar la app. La vista distingue historial vacío de filtro sin coincidencias y ofrece limpiar criterios. No se han implementado categorías, paginación ni resúmenes a partir de estos filtros.
 
 `Money` usa centavos enteros dentro del rango exacto compartido con JavaScript (valor absoluto máximo 9007199254740991). Análisis decimal y sumas usan `BigInt` para comprobar el rango antes de convertir; se rechaza exceso de precisión o rango sin redondear y no se usa `double`. No se suman monedas distintas. Los saldos iniciales se guardan como apertura, separados de movimientos. El almacenamiento no está cifrado ni incluye respaldos.
 

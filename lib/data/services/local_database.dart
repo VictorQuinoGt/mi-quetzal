@@ -4,7 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 class LocalDatabase {
   LocalDatabase({required this.factory, this.path});
 
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
   final DatabaseFactory factory;
   final String? path;
   Future<Database>? _opening;
@@ -75,6 +75,42 @@ class LocalDatabase {
       await db.execute(
         'CREATE INDEX movements_by_date ON movements(occurred_on, id)',
       );
+    }
+    if (from < 3 && to >= 3) {
+      await db.execute('''
+        CREATE TABLE debit_cards (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 60),
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+          last_four TEXT CHECK(last_four IS NULL OR
+            (length(last_four) = 4 AND last_four NOT GLOB '*[^0-9]*'))
+        )
+      ''');
+      await db.execute(
+        'ALTER TABLE movements ADD COLUMN debit_card_id INTEGER REFERENCES debit_cards(id) ON DELETE RESTRICT',
+      );
+      await db.execute(
+        'CREATE INDEX debit_cards_by_account ON debit_cards(account_id)',
+      );
+      for (final event in ['INSERT', 'UPDATE']) {
+        await db.execute('''
+          CREATE TRIGGER debit_cards_bank_${event.toLowerCase()} BEFORE $event ON debit_cards
+          WHEN NOT EXISTS (SELECT 1 FROM accounts WHERE id = NEW.account_id AND type = 'bank')
+            OR EXISTS (SELECT 1 FROM movements WHERE debit_card_id = NEW.id AND account_id <> NEW.account_id)
+          BEGIN SELECT RAISE(ABORT, 'Vinculación bancaria incompatible'); END
+        ''');
+        await db.execute('''
+          CREATE TRIGGER movements_debit_${event.toLowerCase()} BEFORE $event ON movements
+          WHEN NEW.debit_card_id IS NOT NULL AND (NEW.type <> 'expense' OR NOT EXISTS
+            (SELECT 1 FROM debit_cards WHERE id = NEW.debit_card_id AND account_id = NEW.account_id))
+          BEGIN SELECT RAISE(ABORT, 'Tarjeta de débito incompatible'); END
+        ''');
+      }
+      await db.execute('''
+        CREATE TRIGGER accounts_with_debit BEFORE UPDATE OF type ON accounts
+        WHEN NEW.type <> 'bank' AND EXISTS (SELECT 1 FROM debit_cards WHERE account_id = NEW.id)
+        BEGIN SELECT RAISE(ABORT, 'La cuenta tiene tarjetas de débito vinculadas'); END
+      ''');
     }
   }
 

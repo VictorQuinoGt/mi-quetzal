@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/models/movement.dart';
+import '../../domain/models/account.dart';
 import '../core/page_content.dart';
 import 'movement_labels.dart';
 import 'movements_view_model.dart';
@@ -18,6 +19,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   MovementType _type = MovementType.expense;
   int? _accountId;
   int? _counterpartyId;
+  int? _debitCardId;
   late DateTime _date;
   @override
   void initState() {
@@ -38,6 +40,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       type: _type,
       accountId: _accountId,
       counterpartyAccountId: _counterpartyId,
+      debitCardId: _debitCardId,
       amount: _amount.text,
       description: _description.text,
       date: _date,
@@ -104,6 +107,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           _type = type!;
                           _accountId = null;
                           _counterpartyId = null;
+                          _debitCardId = null;
                         }),
                 ),
                 const SizedBox(height: 16),
@@ -139,8 +143,48 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                       : (id) => setState(() {
                           _accountId = id;
                           _counterpartyId = null;
+                          _debitCardId = null;
                         }),
                 ),
+                if (_type == MovementType.expense &&
+                    vm.accountById(_accountId)?.details.type ==
+                        AccountType.bank &&
+                    vm.debitCardsFor(_accountId).isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<int>(
+                    key: ValueKey('debit-$_accountId'),
+                    initialValue: _debitCardId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Tarjeta de débito (opcional)',
+                      errorText: vm.fieldErrors['debitCard'],
+                      errorMaxLines: 3,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int>(
+                        value: null,
+                        child: Text('Sin tarjeta de débito'),
+                      ),
+                      for (final card in vm.debitCardsFor(_accountId))
+                        DropdownMenuItem(
+                          value: card.id,
+                          child: Text(
+                            '${card.details.name}${card.details.lastFour == null ? '' : ' · ${card.details.lastFour}'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: vm.isSaving
+                        ? null
+                        : (id) => setState(() => _debitCardId = id),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'El gasto se descuenta una sola vez de la cuenta bancaria seleccionada.',
+                  ),
+                ],
                 if (origins.isEmpty) ...[
                   const SizedBox(height: 8),
                   const Text(

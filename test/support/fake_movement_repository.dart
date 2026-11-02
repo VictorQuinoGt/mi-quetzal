@@ -17,8 +17,11 @@ class FakeMovementRepository implements MovementRepository {
   bool failSave = false;
   int createCalls = 0;
   Completer<void>? saveGate;
-  LedgerSnapshot get snapshot =>
-      LedgerSnapshot.calculate(accounts.stored, stored);
+  LedgerSnapshot get snapshot => LedgerSnapshot.calculate(
+    accounts.stored,
+    stored,
+    debitCards: accounts.cards,
+  );
 
   @override
   Future<LedgerSnapshot> getSnapshot() async {
@@ -35,12 +38,13 @@ class FakeMovementRepository implements MovementRepository {
       details,
       accounts.stored,
       DateTime.now(),
+      debitCards: accounts.cards,
     );
     final movement = Movement(id: stored.length + 1, details: details);
     final next = LedgerSnapshot.calculate(accounts.stored, [
       ...stored,
       movement,
-    ]);
+    ], debitCards: accounts.cards);
     stored.add(movement);
     return next;
   }
