@@ -161,6 +161,8 @@ class AccountsViewModel extends ChangeNotifier {
   Future<bool> saveAccount({
     int? editingId,
     int? financialInstitutionId,
+    DateTime? nextClosingDate,
+    DateTime? nextPaymentDueDate,
     required String name,
     required AccountType type,
     required Currency currency,
@@ -220,6 +222,12 @@ class AccountsViewModel extends ChangeNotifier {
           lastFour: type != AccountType.cash ? lastFour : null,
           financialInstitutionId: type != AccountType.cash
               ? financialInstitutionId
+              : null,
+          nextClosingDate: type == AccountType.creditCard
+              ? nextClosingDate
+              : null,
+          nextPaymentDueDate: type == AccountType.creditCard
+              ? nextPaymentDueDate
               : null,
           bankAccountType: type == AccountType.bank ? bankAccountType : null,
           secondaryOpeningBalance: secondaryBalance,

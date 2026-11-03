@@ -27,6 +27,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   AccountType _type = AccountType.bank;
   Currency _currency = Currency.gtq;
   int? _institutionId;
+  DateTime? _closingDate;
+  DateTime? _paymentDate;
   late DateTime _date;
 
   @override
@@ -37,6 +39,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       final details = account.details;
       _name.text = details.name;
       _institutionId = details.financialInstitutionId;
+      _closingDate = details.nextClosingDate;
+      _paymentDate = details.nextPaymentDueDate;
       _type = details.type;
       _currency = details.openingBalance.currency;
       _balance.text = details.openingBalance.input;
@@ -68,6 +72,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
     FocusScope.of(context).unfocus();
     final saved = await widget.viewModel.saveAccount(
       editingId: widget.account?.id,
+      nextClosingDate: _closingDate,
+      nextPaymentDueDate: _paymentDate,
       financialInstitutionId: _institutionId,
       name: _name.text,
       type: _type,
@@ -93,6 +99,54 @@ class _CreateAccountViewState extends State<CreateAccountView> {
     );
     if (selected != null && mounted) setState(() => _date = selected);
   }
+
+  Widget _creditDate(
+    String label,
+    DateTime? date,
+    ValueChanged<DateTime?> changed,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.viewModel.isSaving
+                  ? null
+                  : () async {
+                      final selected = await showDatePicker(
+                        context: context,
+                        initialDate: date ?? widget.viewModel.today,
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime(9999, 12, 31),
+                        helpText: label,
+                      );
+                      if (selected != null && mounted) {
+                        setState(() => changed(selected));
+                      }
+                    },
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(
+                date == null
+                    ? 'Sin configurar'
+                    : MaterialLocalizations.of(context).formatFullDate(date),
+              ),
+            ),
+          ),
+          if (date != null)
+            IconButton(
+              onPressed: widget.viewModel.isSaving
+                  ? null
+                  : () => setState(() => changed(null)),
+              tooltip: 'Quitar $label',
+              icon: const Icon(Icons.clear),
+            ),
+        ],
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -283,6 +337,18 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                       ),
                     ),
                   if (credit) ...[
+                    const SizedBox(height: 20),
+                    _creditDate(
+                      'Fecha corte',
+                      _closingDate,
+                      (value) => _closingDate = value,
+                    ),
+                    const SizedBox(height: 20),
+                    _creditDate(
+                      'Fecha pago',
+                      _paymentDate,
+                      (value) => _paymentDate = value,
+                    ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _secondaryBalance,

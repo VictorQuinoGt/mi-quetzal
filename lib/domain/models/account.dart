@@ -18,8 +18,25 @@ final class AccountDetails {
     Money? secondaryOpeningBalance,
     Money? secondaryCreditLimit,
     int? financialInstitutionId,
+    DateTime? nextClosingDate,
+    DateTime? nextPaymentDueDate,
   }) {
     final alias = name.trim();
+    for (final date in [nextClosingDate, nextPaymentDueDate]) {
+      if (date != null && (date.year < 1900 || date.year > 9999)) {
+        throw ArgumentError(
+          'Configura fechas completas entre 1900 y 9999.',
+          'creditDates',
+        );
+      }
+    }
+    if (type != AccountType.creditCard &&
+        (nextClosingDate != null || nextPaymentDueDate != null)) {
+      throw ArgumentError(
+        'Las fechas de corte y pago corresponden a tarjetas de crédito.',
+        'creditDates',
+      );
+    }
     if (alias.isEmpty || alias.length > 60) {
       throw ArgumentError('Escribe un alias de 1 a 60 caracteres.', 'name');
     }
@@ -94,6 +111,20 @@ final class AccountDetails {
       secondaryOpeningBalance: secondaryOpeningBalance,
       secondaryCreditLimit: secondaryCreditLimit,
       financialInstitutionId: financialInstitutionId,
+      nextClosingDate: nextClosingDate == null
+          ? null
+          : DateTime(
+              nextClosingDate.year,
+              nextClosingDate.month,
+              nextClosingDate.day,
+            ),
+      nextPaymentDueDate: nextPaymentDueDate == null
+          ? null
+          : DateTime(
+              nextPaymentDueDate.year,
+              nextPaymentDueDate.month,
+              nextPaymentDueDate.day,
+            ),
     );
   }
 
@@ -108,6 +139,8 @@ final class AccountDetails {
     this.secondaryOpeningBalance,
     this.secondaryCreditLimit,
     this.financialInstitutionId,
+    this.nextClosingDate,
+    this.nextPaymentDueDate,
   });
 
   final String name;
@@ -120,6 +153,8 @@ final class AccountDetails {
   final Money? secondaryOpeningBalance;
   final Money? secondaryCreditLimit;
   final int? financialInstitutionId;
+  final DateTime? nextClosingDate;
+  final DateTime? nextPaymentDueDate;
   void validateFinancialInstitution(List<FinancialInstitution> institutions) {
     if (financialInstitutionId != null &&
         !institutions.any((i) => i.id == financialInstitutionId)) {
@@ -145,6 +180,9 @@ final class Account {
     required this.details,
     Money? currentBalance,
     Money? secondaryCurrentBalance,
+    this.reservedCredit = const {},
+    this.ordinaryDebt = const {},
+    this.unknownAvailable = const {},
   }) : currentBalance = currentBalance ?? details.openingBalance,
        secondaryCurrentBalance =
            secondaryCurrentBalance ?? details.secondaryOpeningBalance;
@@ -152,12 +190,42 @@ final class Account {
   final AccountDetails details;
   final Money currentBalance;
   final Money? secondaryCurrentBalance;
+  final Map<Currency, Money> reservedCredit;
+  final Map<Currency, Money> ordinaryDebt;
+  final Set<Currency> unknownAvailable;
   List<Money> get currentBalances => [currentBalance, ?secondaryCurrentBalance];
   Money? balanceFor(Currency currency) {
     for (final balance in currentBalances) {
       if (balance.currency == currency) return balance;
     }
     return null;
+  }
+
+  Money? creditLimitFor(Currency currency) =>
+      details.creditLimit?.currency == currency
+      ? details.creditLimit
+      : details.secondaryCreditLimit?.currency == currency
+      ? details.secondaryCreditLimit
+      : null;
+  Money? availableCreditFor(Currency currency) {
+    if (details.type != AccountType.creditCard) return null;
+    if (unknownAvailable.contains(currency)) return null;
+    final balance = ordinaryDebt[currency] ?? balanceFor(currency);
+    final limit = details.creditLimit?.currency == currency
+        ? details.creditLimit
+        : details.secondaryCreditLimit?.currency == currency
+        ? details.secondaryCreditLimit
+        : null;
+    // Un saldo a favor no permite inferir cuánto autorizará el emisor.
+    if (balance == null || limit == null || balance.minorUnits < 0) return null;
+    final remaining =
+        BigInt.from(limit.minorUnits) -
+        BigInt.from(balance.minorUnits) -
+        BigInt.from(reservedCredit[currency]?.minorUnits ?? 0);
+    return Money.fromBigInt(
+      remaining < BigInt.zero ? BigInt.zero : remaining,
+      currency,
+    );
   }
 
   bool get hasCreditInFavor =>

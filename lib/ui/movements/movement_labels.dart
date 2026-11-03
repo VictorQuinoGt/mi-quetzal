@@ -17,3 +17,13 @@ extension MovementTypeLabel on MovementType {
     MovementType.refund => 'Revierte un gasto en la misma cuenta y moneda de la compra. Reduce gastos del mes de la devolución; no es un ingreso.',
   };
 }
+
+extension MovementOperationLabel on MovementDetails {
+  String get operationLabel => reconciledIntoId != null
+      ? 'Referencia conciliada'
+      : switch (origin) {
+          MovementOrigin.manual => type.label,
+          MovementOrigin.installmentCharge => 'Cuota cargada',
+          MovementOrigin.installmentConversion => 'Conversión a cuotas',
+        };
+}

@@ -1,3 +1,5 @@
+import '../support/account_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -89,7 +91,7 @@ void main() {
     (tester) async {
       await record();
       await boot(tester);
-      await press(tester, find.text('Entidades financieras'));
+      await openFinancialAdministration(tester);
       await tester.enterText(
         field('Nombre de entidad financiera'),
         'Entidad sintética',
@@ -102,6 +104,7 @@ void main() {
       );
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
+      await openAccountDetails(tester, 1);
       await press(tester, find.byTooltip('Editar Banco sintético'));
       await choose(
         tester,
@@ -110,17 +113,16 @@ void main() {
       );
       await tester.enterText(field('Terminación (últimos 4 dígitos)'), '0042');
       await press(tester, find.text('Guardar cuenta'));
-      expect(
-        find.text('Entidad financiera: Entidad sintética'),
-        findsNWidgets(2),
-      );
+      await closeAccountDetails(tester);
+      expect(find.text('Entidad sintética'), findsNWidgets(2));
       expect(find.text('Cuenta bancaria · •••• 0042'), findsOneWidget);
       expect(find.text('GTQ 98.75'), findsNWidgets(2));
-      expect(find.text('Deuda actual'), findsNothing);
+      expect(find.text('Deuda actual'), findsOneWidget);
       expect(find.textContaining('inicial:'), findsNothing);
       expect(find.textContaining('Vinculada a:'), findsNothing);
       expect(find.textContaining('Comparte el saldo'), findsNothing);
       expect(find.textContaining('Los saldos se calculan'), findsNothing);
+      await openAccountDetails(tester, 2);
       await press(tester, find.byTooltip('Editar Crédito sintético'));
       await choose(
         tester,
@@ -128,19 +130,14 @@ void main() {
         'Entidad sintética',
       );
       await press(tester, find.text('Guardar cuenta'));
-      expect(
-        find.text('Entidad financiera: Entidad sintética'),
-        findsNWidgets(3),
-      );
+      await closeAccountDetails(tester);
+      expect(find.text('Entidad sintética'), findsNWidgets(3));
       expect(find.text('USD 20.00'), findsOneWidget);
       expect(movements.stored.single.details.amount.minorUnits, 125);
       await tester.pumpWidget(const SizedBox());
       await boot(tester);
       expect(find.text('Cuenta bancaria · •••• 0042'), findsOneWidget);
-      expect(
-        find.text('Entidad financiera: Entidad sintética'),
-        findsNWidgets(3),
-      );
+      expect(find.text('Entidad sintética'), findsNWidgets(3));
     },
   );
   testWidgets(
@@ -150,6 +147,7 @@ void main() {
         FinancialInstitutionDetails(name: 'Entidad de tarjeta sintética'),
       );
       await boot(tester);
+      await openAccountDetails(tester, 1, debit: true);
       await press(tester, find.byTooltip('Editar Débito sintético'));
       await choose(
         tester,
@@ -179,7 +177,7 @@ void main() {
       final date = MaterialLocalizations.of(
         tester.element(find.text('Estado de cuenta')),
       ).formatMediumDate(DateTime(2026, 11, 1));
-      expect(find.text(date), findsOneWidget);
+      expect(find.textContaining(date), findsOneWidget);
       await openMovementDetails(tester, 1);
       expect(find.text('Compra o gasto'), findsOneWidget);
       expect(find.text('Categoría: Gasto sintético'), findsOneWidget);
@@ -218,7 +216,7 @@ void main() {
     'Catálogo valida nombre, conserva formulario al fallar y bloquea envío y volver',
     (tester) async {
       await boot(tester);
-      await press(tester, find.text('Entidades financieras'));
+      await openFinancialAdministration(tester);
       await press(tester, find.text('Agregar entidad financiera'));
       expect(
         find.textContaining('nombre de entidad de 1 a 60'),

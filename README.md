@@ -9,7 +9,7 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Inicio con accesos a Movimientos, Cuentas y Planificación.
 - Navegación inferior en móvil y lateral desde 840 px de ancho.
 - Estado de navegación en `AppShellViewModel` mediante `ChangeNotifier`.
-- Acceso rápido «Registrar» con formulario de movimientos; si faltan cuentas, conduce a su alta.
+- Acceso rápido «Registrar» fuera de Cuentas; si faltan cuentas, conduce a su alta. Cuentas utiliza «Agregar cuenta» en el encabezado, sin botón flotante.
 - Soporte web para desarrollar y probar la interfaz sin Android Studio.
 - Registro y listado de efectivo, cuentas bancarias y tarjetas de crédito.
 - Cuentas organizadas en crédito, débito, bancos y efectivo, con tarjetas visuales del mismo estilo y saldos actuales visibles.
@@ -17,8 +17,11 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Cuentas bancarias de tipo Monetario o Ahorro; débito muestra el saldo compartido del banco vinculado.
 - Edición de cuentas y tarjetas de débito existentes, conservando identidad e historial.
 - Catálogo de entidades financieras en Categorías, seleccionable en cuentas y tarjetas; terminación bancaria opcional de cuatro dígitos.
-- Tarjetas de Cuentas con saldo actual por moneda, entidad y terminación; aperturas y fechas disponibles en los formularios de edición.
-- Movimientos en formato de estado de cuenta con descripción, monto y fecha; el botón «?» abre el detalle y las acciones de categorizar/devolver.
+- Tarjetas compactas que se abren completas al tocar: alias, entidad configurada, tipo, terminación y una etiqueta de importes por cuenta, con GTQ/USD separados.
+- Detalle propio por identificador de cuenta o tarjeta, con edición, datos completos y movimientos por mes calendario, independiente de los filtros globales.
+- Resumen de crédito compacto con deuda Q/US$, Fecha corte/Fecha pago en dd/MM, límite y disponible por moneda; pestañas Movimientos y Cuotas.
+- Compras en cuotas con calendario previo, planes iniciados, cargos mensuales recuperables, edición futura, cancelación y conciliación explícita. Consultar [gestión de cuotas](docs/cuotas.md).
+- Movimientos con descripción, fecha/categoría, tipo con texto/ícono e importe; tocar la fila o su flecha abre el detalle y las acciones de categorizar/devolver.
 - Importes exactos en centavos, con moneda GTQ o USD, saldo/deuda inicial y fecha.
 - Límite de crédito y últimos cuatro dígitos opcionales; no se solicitan números completos, CVV ni PIN.
 - Persistencia SQLite de cuentas y recuperación al volver a abrir la aplicación.
@@ -29,9 +32,9 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Categorías propias de ingreso/gasto, opcionales al registrar y asignables a operaciones anteriores.
 - Resumen mensual en Inicio, por moneda y categoría, sin doble gasto por pagos de tarjeta.
 - Devoluciones parciales o completas vinculadas a compras, con control del importe pendiente y reversión del gasto.
-- Migración al esquema 7 que conserva cuentas, tarjetas, categorías y movimientos anteriores.
+- Migración al esquema 9 que conserva los datos anteriores y añade planes, calendario, revisiones y conciliaciones; las fechas de corte/pago antiguas permanecen sin configurar.
 
-Cuentas muestra «Saldo actual» por moneda; en crédito representa la deuda, o «Saldo a favor» cuando corresponde. El límite sigue separado. Las tarjetas de crédito, débito y bancos ocultan apertura y fecha; esos datos se conservan en los formularios. Se pueden editar alias, aperturas, fecha, límites, últimos cuatro, tipo bancario y entidad financiera; el tipo general y la moneda principal de una cuenta existente se conservan. La categoría de ingresos/gastos se puede cambiar desde el detalle; la edición general de movimientos y el borrado aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
+Cuentas muestra una sola etiqueta: «Deuda actual» para crédito, «Saldo disponible» para banco/efectivo y «Saldo de cuenta vinculada» para débito. Los importes a favor se identifican por moneda. La lista omite aperturas, fechas, límites y lápices; el detalle contiene los datos ampliados y el acceso de edición. Se pueden editar alias, aperturas, fechas, límites, últimos cuatro, tipo bancario y entidad; el tipo general y la moneda principal de una cuenta existente se conservan. La edición general de movimientos y el borrado aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
 
 ## Desarrollo
 
@@ -95,7 +98,7 @@ El registro de pagos con origen desconocido se abordará con la importación y c
 Instalar la APK como actualización, sin desinstalar la anterior ni borrar datos, para comprobar la migración.
 
 1. En Cuentas, crear una nueva cuenta bancaria sintética «Banco débito prueba», GTQ y saldo inicial `1000`.
-2. Pulsar «Vincular débito». Crear «Débito principal» con últimos cuatro `0042` y vincularla al banco anterior. Se puede añadir otra tarjeta «Débito adicional» a la misma cuenta.
+2. Abrir el detalle de ese banco y pulsar «Vincular débito». El banco queda precargado. Crear «Débito principal» con últimos cuatro `0042`; se puede añadir «Débito adicional» a la misma cuenta.
 3. En «Registrar», elegir compra/gasto y la cuenta «Banco débito prueba». Seleccionar «Débito principal» en el campo opcional de tarjeta y registrar `12.50` con descripción «Compra débito prueba».
 4. Registrar otra compra de `7.50` con «Débito adicional». La cuenta bancaria debe mostrar `GTQ 980.00`. Las tarjetas no muestran ni agregan saldos propios.
 5. En Movimientos, filtrar por el banco, compra/gasto y GTQ. Buscar «débito» y seleccionar un rango de fechas que incluya ambas compras. Deben aparecer dos operaciones con su tarjeta identificada.
@@ -114,7 +117,7 @@ Instalar la APK como actualización, sin desinstalar ni borrar datos, para compr
 2. Para una prueba aislada, usar nuevas cuentas sintéticas en GTQ: «Banco resumen» con apertura `1000` y «Crédito resumen» con deuda inicial `0`.
 3. En el mes actual, registrar ingreso `100` al banco con categoría «Salario de prueba», una compra de crédito de `50` con «Alimentos de prueba» y un pago de tarjeta de `20` desde el banco hacia crédito.
 4. En Inicio, el incremento de los totales GTQ del mes debe ser ingresos `100`, gastos `50` y diferencia `50`. El pago de `20` no vuelve a sumar gasto; la apertura `1000` tampoco es ingreso. Si ya hay operaciones de ese mes, estos valores se agregan a ellas.
-5. En Movimientos, abrir «?» de un ingreso o gasto anterior y pulsar «Categorizar». Asignar una categoría compatible o «Sin categoría». Deben conservarse descripción, fecha, importe, identidad y saldos; el desglose por categoría se actualiza.
+5. En Movimientos, tocar la fila o flecha de un ingreso/gasto anterior y pulsar «Categorizar». Asignar una categoría compatible o «Sin categoría». Deben conservarse descripción, fecha, importe, identidad y saldos; el desglose por categoría se actualiza.
 6. Probar el filtro por categoría y «Sin categoría». Este último incluye ingresos/gastos no clasificados y sus devoluciones; no incluye transferencias ni pagos. Los filtros no cambian los totales de Inicio.
 7. Cambiar al mes anterior y regresar. GTQ y USD tienen resúmenes separados; no se suman ni convierten. Cerrar y volver a abrir la app para comprobar la conservación de categorías y asignaciones.
 
@@ -124,7 +127,7 @@ Los totales usan centavos exactos y comprobación de rango mediante `BigInt`. Si
 
 ## Probar devoluciones en el teléfono
 
-Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus datos. En Movimientos, abrir «?» de una compra: su detalle ofrece «Devolver» cuando tiene importe pendiente.
+Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus datos. En Movimientos, tocar una compra: su detalle ofrece «Devolver» cuando tiene importe pendiente.
 
 1. Crear cuentas sintéticas GTQ «Banco devoluciones» con apertura `1000` y «Crédito devoluciones» con deuda `0`.
 2. Registrar una compra de `50` desde el banco. Pulsar «Devolver» en esa compra, escribir descripción e importe `20` y guardar. Banco debe quedar en `970`; el pendiente de devolver es `30`.
@@ -140,7 +143,7 @@ Las devoluciones siempre usan la cuenta y moneda originales, tanto para efectivo
 
 Instalar la APK como actualización, sin desinstalar ni borrar datos. Las cuentas anteriores conservan su moneda, apertura, vínculos e historial. El tipo bancario y la segunda moneda que no estaban registrados quedan sin especificar hasta completarlos al editar.
 
-1. En Cuentas, pulsar el lápiz rojo de una tarjeta de crédito existente. Comprobar que están cargados su alias, apertura original, fecha, límite y últimos cuatro.
+1. En Cuentas, tocar una tarjeta de crédito existente y pulsar el lápiz azul de su detalle. Comprobar alias, apertura original, fecha, límite y últimos cuatro precargados.
 2. Conservar la deuda inicial GTQ y registrar, por ejemplo, `25.29` en «Deuda inicial USD», o `0` si no hay deuda en dólares. Añadir un límite USD es opcional. Si la tarjeta anterior tenía USD como moneda principal, el segundo campo corresponde a GTQ. No hay conversión ni suma entre monedas.
 3. Guardar y comprobar ambas deudas actuales en una sola tarjeta. El saldo actual incluye los movimientos anteriores; el formulario edita la apertura, no registra una compra ni ingreso nuevo.
 4. En Registrar, seleccionar esa tarjeta y elegir «Moneda del movimiento». Una compra USD debe aumentar solo su deuda USD. Su devolución usa automáticamente esa misma moneda.
@@ -149,17 +152,28 @@ Instalar la APK como actualización, sin desinstalar ni borrar datos. Las cuenta
 7. Editar el alias o los últimos cuatro de una tarjeta de débito. Si ya tiene compras, no se puede cambiar su banco vinculado. Las compras conservan su referencia a la tarjeta.
 8. Cerrar y volver a abrir la app para comprobar persistencia. Intentar una apertura posterior a movimientos existentes o un efectivo inicial que dejaría el historial negativo: debe rechazarse sin guardar cambios parciales.
 
-La segunda moneda de crédito es opcional: dejarla vacía significa que aún no se ha registrado, no saldo cero. Una vez que tiene movimientos, no se puede quitar. El tipo general y la moneda principal se conservan al editar para evitar reinterpretar el historial. El tema utiliza azul para marca/acciones y rojo para edición, selección y errores.
+La segunda moneda de crédito es opcional: dejarla vacía significa que aún no se ha registrado, no saldo cero. Una vez que tiene movimientos, no se puede quitar. El tipo general y la moneda principal se conservan al editar para evitar reinterpretar el historial. El tema utiliza azul para marca/edición y acentos rojos para selección y errores.
 
 ## Probar entidades financieras y estado de cuenta
 
-1. En Movimientos → Categorías, bajar a «Entidades financieras» y crear una entidad sintética. También se accede con «Entidades financieras» desde Cuentas. Este catálogo es independiente de las categorías de ingreso/gasto.
+1. En Movimientos → Categorías, bajar a «Entidades financieras» y crear una entidad sintética. También se accede desde el menú «Administrar cuentas» de Cuentas. Este catálogo es independiente de las categorías de ingreso/gasto.
 2. Editar un banco y seleccionar la entidad. Completar «Terminación (últimos 4 dígitos)», por ejemplo `0042`. Su tarjeta debe mostrar entidad, terminación, tipo y saldo actual, sin apertura ni fecha.
 3. Editar crédito y débito para seleccionar su entidad. Débito permite una entidad explícita o «De la cuenta bancaria», que utiliza la del banco vinculado. Los datos de entidad y terminación no cambian el saldo ni crean movimientos.
-4. Comprobar que crédito muestra «Saldo actual» en ambas monedas, sin deuda inicial ni fecha. Débito muestra saldo y entidad, sin el texto de vinculación ni saldo inicial. Los saldos GTQ/USD y la regla de saldo a favor siguen separados.
-5. En Movimientos, comprobar filas compactas con descripción, monto y fecha. Pulsar «?» o la fila para ver tipo, cuentas, terminaciones, entidad, categoría, débito y vínculo de devolución cuando corresponda.
-6. Categorizar o devolver desde el detalle. Guardar debe actualizar el detalle y los saldos/resumen correspondientes. Volver al estado de cuenta conserva los filtros. Abrir el detalle por sí solo no escribe movimientos.
+4. Comprobar «Deuda actual» una sola vez en crédito, con importes GTQ/USD separados y sin apertura/fecha/límite en la lista. Débito muestra «Saldo de cuenta vinculada». La regla de saldo a favor se mantiene por moneda.
+5. En Movimientos, comprobar descripción, fecha/categoría, tipo e importe. Tocar la fila o flecha para ver cuentas, terminaciones, entidad y vínculos de débito/devolución cuando corresponda.
+6. Categorizar o devolver desde el detalle. Guardar debe actualizar el detalle y los saldos/resumen correspondientes. Volver al estado de cuenta conserva los filtros. Abrir el detalle recupera cuotas vencidas cuando existen planes; sin planes, no añade movimientos.
 7. Cerrar y abrir la app para comprobar que entidades, asignaciones y terminaciones persisten. La actualización conserva datos anteriores; no deduce entidades a partir de alias ni inventa terminaciones.
+
+## Probar el detalle de cuentas y sus períodos
+
+1. Tocar cualquier cuenta o tarjeta. Verificar que el alias y los datos corresponden a la entidad elegida; volver mantiene Cuentas activa y conserva la posición del listado cuando es posible.
+2. En crédito, usar el lápiz del detalle para configurar «Fecha corte» y «Fecha pago». Son fechas completas, opcionales e independientes; no se exige un número fijo de días entre ellas. Al guardar se actualizan detalle y lista. Se pueden quitar ambas fechas.
+3. Las fechas antiguas sin configuración muestran «Sin configurar». Las fechas se presentan en dd/MM, conservando el año internamente; no se adelanta automáticamente ni se inventa una recurrencia mensual.
+4. Comprobar límite y disponible por moneda. El disponible es `máximo(0, límite − deuda ordinaria − reserva de capital futuro)` solamente con límite y deuda no negativa de esa misma moneda. Si falta límite/moneda o hay saldo a favor, no se infiere disponible. USD nunca se resta de un límite GTQ. Si falta desglose de capital o la asignación de un pago entre líneas, se muestra «Sin determinar».
+5. Bajo «Movimientos del período», elegir Mes actual, Mes anterior o Histórico. Histórico usa selectores de año y mes; no selecciona días. En enero, Mes anterior debe consultar diciembre del año anterior. El mes incluye su último día y excluye el siguiente.
+6. Cambiar a un mes antiguo: la deuda/saldo de arriba sigue siendo la situación actual, no un saldo final de ese mes. Los filtros globales de Movimientos no afectan al detalle y se conservan al volver.
+7. En débito, verificar la cuenta bancaria vinculada. Cuando el banco tiene operaciones identificadas por tarjeta se muestran solo las de la tarjeta seleccionada y sus devoluciones. Si no hay identificación por tarjeta, se muestran los movimientos bancarios y el alcance se explica expresamente. No se genera otro saldo.
+8. Desde un banco, consultar tarjetas vinculadas y «Vincular débito». Desde una fila de movimiento del detalle se puede abrir el detalle del movimiento, categorizar o devolver y ver el resultado actualizado, conservando el período.
 
 ## Codex y arquitectura
 
@@ -207,9 +221,9 @@ Cuando cambien plugins o integración Android:
 flutter build apk --debug
 ```
 
-Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, categorías, resúmenes mensuales, validaciones, envíos repetidos, errores y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1, 2, 3, 4, 5 y 6 y fallos de migración sin borrar datos. Se comprueba que categorizar conserva datos financieros y que los totales mensuales no dependen de filtros ni mezclan monedas. Las pruebas exclusivas de SQLite web se omiten en la ejecución nativa; el comando de Chrome usa un archivo en la raíz de `test/` para evitar el defecto de rutas anidadas de Flutter 3.47 en Windows y agrupa también pruebas de dominio en JavaScript.
+Las pruebas cubren navegación, formularios, dinero exacto, monedas, compras con fondos/crédito/débito, pagos sin doble gasto, transferencias, saldo a favor, filtros combinados, categorías, resúmenes mensuales, validaciones, envíos repetidos, errores y recuperación. SQLite se prueba con bases temporales sintéticas: reapertura, parámetros, identidades distintas, restricciones, escrituras concurrentes, operaciones retroactivas, transacciones, migraciones desde esquemas 1, 2, 3, 4, 5, 6, 7 y 8 y fallos de migración sin borrar datos. Se comprueba que categorizar conserva datos financieros y que los totales mensuales no dependen de filtros ni mezclan monedas. Las pruebas exclusivas de SQLite web se omiten en la ejecución nativa; el comando de Chrome usa un archivo en la raíz de `test/` para evitar el defecto de rutas anidadas de Flutter 3.47 en Windows y agrupa también pruebas de dominio en JavaScript.
 
-Verificación del incremento de entidades y estado de cuenta: formato y análisis sin incidencias, APK debug y web compiladas, 192 pruebas nativas y 58 en Chrome aprobadas. Las siete pruebas exclusivas de SQLite web se omiten en el entorno nativo. Se comprueban catálogo, referencias, terminaciones bancarias, edición sin cambios monetarios, migración desde v6, reversión de migraciones fallidas y consulta de detalle sin escrituras. Los flujos de categorizar/devolver se prueban desde el detalle; lista y detalle incluyen pantalla de 320 px y texto ampliado. Se revisaron capturas locales con datos sintéticos de cuentas, estado de cuenta y detalle.
+Verificación del incremento de cuotas: formato y análisis sin incidencias, APK debug y web compiladas, 249 pruebas nativas y 74 en Chrome aprobadas. Las nueve pruebas exclusivas de SQLite web se omiten en el entorno nativo. Incluye migración v8 con rollback, generación mensual, reintentos/concurrencia entre conexiones, planes previos, redondeo final, monedas separadas, líneas adicionales, compra vinculada, conciliación, edición/cancelación y actualización de detalle/lista al reanudar. Se mantienen pruebas de 320 px, texto a 1.8 y montos largos; se revisó una captura sintética del nuevo resumen. Ver [comportamiento y limitaciones de cuotas](docs/cuotas.md).
 
 La prueba física en teléfono debe realizarse con los pasos anteriores; no se ha ejecutado desde este entorno. Los cambios solo documentales o de Git requieren revisar diff y patrones afectados, sin compilar la app. No existe todavía un flujo CI configurado.
 
@@ -220,7 +234,7 @@ La prueba física en teléfono debe realizarse con los pasos anteriores; no se h
 - `sqflite_common_ffi` permite probar el mismo repositorio con SQLite real en la computadora.
 - `path` compone la ruta local y `flutter_localizations` presenta controles y fechas en español.
 
-El esquema actual es versión 7: `accounts`, `movements`, `debit_cards`, `categories` y `financial_institutions`. La migración v7 añade el catálogo, referencias opcionales desde cuentas/débito y `accounts.bank_last_four`; conserva las terminaciones de crédito en la columna anterior. Las entidades y terminaciones bancarias anteriores quedan sin especificar hasta completarlas. La migración v6 mantiene las aperturas/límites GTQ/USD y el tipo bancario; v5 mantiene el vínculo de devoluciones. Las altas y ediciones son transaccionales; editar una apertura reconstruye el historial antes del commit y revierte ante incompatibilidad. Claves foráneas, restricciones y disparadores protegen vínculos, monedas y categorías. Los saldos actuales se reconstruyen por cuenta y moneda en el dominio. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
+El esquema actual es versión 9: planes, cuotas, revisiones y conciliaciones se añaden a `accounts`, `movements`, `debit_cards`, `categories` y `financial_institutions`. La migración v8 añade `accounts.next_closing_date` y `next_payment_due_date`, opcionales y solo para crédito. Conserva nulos en cuentas antiguas y no modifica saldos, límites, entidades ni movimientos; un fallo revierte columnas y versión. v7 mantiene el catálogo y las terminaciones, v6 las aperturas/límites GTQ/USD y v5 el vínculo de devoluciones. Las altas y ediciones son transaccionales; editar una apertura reconstruye el historial antes del commit y revierte ante incompatibilidad. Los saldos actuales se reconstruyen por cuenta y moneda en el dominio. El almacenamiento actual no incorpora cifrado, respaldos, sincronización ni autenticación.
 
 ## Próximo incremento
 

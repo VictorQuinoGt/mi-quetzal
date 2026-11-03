@@ -26,6 +26,7 @@ abstract final class MovementRules {
     List<Movement> movements = const [],
   }) {
     final byId = {for (final account in accounts) account.id: account};
+    if (movement.reconciledIntoId != null) return const {};
     final origin = byId[movement.accountId];
     if (origin == null || !canBeOrigin(origin, movement.type)) {
       throw const MovementValidationException(
@@ -75,8 +76,17 @@ abstract final class MovementRules {
     final amount = movement.amount;
     switch (movement.type) {
       case MovementType.expense:
+        if (movement.isGenerated &&
+            origin.details.type != AccountType.creditCard) {
+          throw const MovementValidationException(
+            'account',
+            'Las cuotas solo se cargan a crédito.',
+          );
+        }
         return {
-          origin.id: origin.details.type == AccountType.creditCard
+          origin.id: movement.origin == MovementOrigin.installmentConversion
+              ? amount.negated
+              : origin.details.type == AccountType.creditCard
               ? amount
               : amount.negated,
         };
@@ -157,6 +167,12 @@ abstract final class MovementRules {
       );
     }
     final original = matches.single;
+    if (original.details.isGenerated) {
+      throw const MovementValidationException(
+        'originalMovement',
+        'Los cargos de cuotas se ajustan desde su plan y conciliación.',
+      );
+    }
     if (original.details.accountId != refund.accountId ||
         original.details.amount.currency != refund.amount.currency) {
       throw const MovementValidationException(

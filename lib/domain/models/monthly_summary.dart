@@ -47,6 +47,7 @@ final class MonthlySummary {
       final expenseGroups = <int?, BigInt>{};
       for (final movement in ledger.movements) {
         final data = movement.details;
+        if (data.reconciledIntoId != null) continue;
         if (data.date.year != year ||
             data.date.month != month ||
             data.amount.currency != currency) {
@@ -54,7 +55,11 @@ final class MonthlySummary {
         }
         if (!data.isExpense && !data.isIncome && !data.isRefund) continue;
         final value =
-            BigInt.from(data.amount.minorUnits) *
+            BigInt.from(
+              data.isExpense
+                  ? data.reportExpense.minorUnits
+                  : data.amount.minorUnits,
+            ) *
             (data.isRefund ? -BigInt.one : BigInt.one);
         final categoryId = data.isRefund
             ? byId[data.originalMovementId]!.details.categoryId

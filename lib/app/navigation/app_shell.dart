@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 
+import 'dart:async';
+
+import '../../data/repositories/installment_repository.dart';
+import '../../domain/models/installment_plan.dart';
+import '../../ui/accounts/installment_form_view.dart';
+import '../../ui/accounts/installment_form_view_model.dart';
+import '../../ui/accounts/installment_plan_view.dart';
+import '../../ui/accounts/installment_plan_view_model.dart';
+
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/movement_repository.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/debit_card.dart';
+import '../../domain/models/account_activity.dart';
 import '../../ui/categories/categories_view.dart';
 import '../../ui/categories/categorize_movement_view.dart';
 import '../../ui/accounts/accounts_view.dart';
 import '../../ui/accounts/accounts_view_model.dart';
 import '../../ui/accounts/create_account_view.dart';
 import '../../ui/accounts/create_debit_card_view.dart';
+import '../../ui/accounts/account_detail_view.dart';
+import '../../ui/accounts/account_detail_view_model.dart';
+import '../../ui/movements/movement_detail_view.dart';
 import '../../ui/home/home_view.dart';
 import '../../ui/movements/movements_view.dart';
 import '../../ui/movements/movements_view_model.dart';
@@ -25,24 +38,65 @@ class AppShell extends StatefulWidget {
     super.key,
     required this.accountRepository,
     required this.movementRepository,
+    required this.installmentRepository,
+    this.enableInstallmentPolling = false,
   });
   final AccountRepository accountRepository;
   final MovementRepository movementRepository;
+  final InstallmentRepository installmentRepository;
+  final bool enableInstallmentPolling;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
-  final _viewModel = AppShellViewModel();
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  Timer? _installmentTimer;
+  final _openAccountViewModels = <AccountDetailViewModel>{};
+  late final AppShellViewModel _viewModel;
   late final AccountsViewModel _accountsViewModel;
   late final MovementsViewModel _movementsViewModel;
 
   @override
   void initState() {
     super.initState();
+    _viewModel = AppShellViewModel(
+      installmentRepository: widget.installmentRepository,
+    );
+    WidgetsBinding.instance.addObserver(this);
     _accountsViewModel = AccountsViewModel(widget.accountRepository)..load();
     _movementsViewModel = MovementsViewModel(widget.movementRepository)..load();
+    if (widget.enableInstallmentPolling) {
+      _installmentTimer = Timer.periodic(
+        const Duration(minutes: 1),
+        (_) => _refreshInstallments(),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshInstallments();
+  }
+
+  Future<void> _refreshInstallments() async {
+    if (!mounted ||
+        _accountsViewModel.isSaving ||
+        _movementsViewModel.isSaving) {
+      return;
+    }
+    await _viewModel.refreshInstallments(
+      () => [
+        _accountsViewModel.load,
+        _movementsViewModel.load,
+        for (final vm in _openAccountViewModels.toList()) vm.load,
+      ],
+    );
+  }
+
+  void _selectSection(AppSection section) {
+    _viewModel.selectSection(section);
+    unawaited(_refreshInstallments());
   }
 
   Future<void> _createAccount([Account? account]) async {
@@ -92,7 +146,7 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  Future<void> _linkDebitCard([DebitCard? card]) async {
+  Future<void> _linkDebitCard(DebitCard? card, {int? initialAccountId}) async {
     if (_accountsViewModel.status != AccountsStatus.ready ||
         _accountsViewModel.bankAccounts.isEmpty) {
       return;
@@ -100,8 +154,11 @@ class _AppShellState extends State<AppShell> {
     _accountsViewModel.startCreate();
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) =>
-            CreateDebitCardView(viewModel: _accountsViewModel, card: card),
+        builder: (context) => CreateDebitCardView(
+          viewModel: _accountsViewModel,
+          card: card,
+          initialAccountId: initialAccountId,
+        ),
       ),
     );
     if (created == true && mounted) {
@@ -130,41 +187,151 @@ class _AppShellState extends State<AppShell> {
     if (mounted) await _accountsViewModel.load();
   }
 
-  Future<void> _categorizeMovement(Movement movement) async {
-    if (_movementsViewModel.status != MovementsStatus.ready) return;
-    final current = _movementsViewModel.movementById(movement.id) ?? movement;
-    _movementsViewModel.startCreate();
+  Future<void> _categorizeMovement(
+    Movement movement, {
+    MovementsViewModel? source,
+  }) async {
+    final vm = source ?? _movementsViewModel;
+    if (vm.status != MovementsStatus.ready) return;
+    final current = vm.movementById(movement.id) ?? movement;
+    vm.startCreate();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => CategorizeMovementView(
-          viewModel: _movementsViewModel,
-          movement: current,
-        ),
+        builder: (context) =>
+            CategorizeMovementView(viewModel: vm, movement: current),
       ),
     );
     if (saved == true && mounted) {
+      if (source != null) await _movementsViewModel.load();
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Categoría actualizada')));
     }
   }
 
-  Future<void> _refundMovement(Movement original) async {
-    if (_movementsViewModel.status != MovementsStatus.ready) return;
-    _movementsViewModel.startCreate();
+  Future<void> _refundMovement(
+    Movement original, {
+    MovementsViewModel? source,
+  }) async {
+    final vm = source ?? _movementsViewModel;
+    if (vm.status != MovementsStatus.ready) return;
+    vm.startCreate();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => CreateRefundView(
-          viewModel: _movementsViewModel,
-          original: original,
-        ),
+        builder: (context) =>
+            CreateRefundView(viewModel: vm, original: original),
       ),
     );
     if (saved == true && mounted) {
       await _accountsViewModel.load();
+      if (source != null) await _movementsViewModel.load();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Devolución guardada')));
     }
+  }
+
+  Future<void> _openAccountDetail(AccountDetailTarget target) async {
+    final vm = AccountDetailViewModel(
+      widget.movementRepository,
+      target: target,
+      initialName:
+          (target.kind == AccountDetailKind.account
+              ? _accountsViewModel.accountById(target.id)?.details.name
+              : _movementsViewModel.debitCardById(target.id)?.details.name) ??
+          'Detalle de cuenta',
+    )..load();
+    _openAccountViewModels.add(vm);
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => AccountDetailView(
+          viewModel: vm,
+          onEdit: () async {
+            if (vm.debitCard != null) {
+              await _linkDebitCard(vm.debitCard);
+            } else {
+              await _createAccount(vm.account);
+            }
+            await vm.load();
+          },
+          onLinkDebit: () async {
+            await _linkDebitCard(null, initialAccountId: vm.account?.id);
+            await vm.load();
+          },
+          onOpenAccount: (next) async {
+            await _openAccountDetail(next);
+            await vm.load();
+          },
+          onOpenMovement: (movement) => Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (context) => MovementDetailView(
+                movement: movement,
+                viewModel: vm.ledger,
+                onCategorize: () =>
+                    _categorizeMovement(movement, source: vm.ledger),
+                onRefund: () => _refundMovement(movement, source: vm.ledger),
+              ),
+            ),
+          ),
+          onAddPlan: () => _editInstallment(vm, null),
+          onOpenPlan: (plan) => _openInstallment(vm, plan.id),
+        ),
+      ),
+    );
+    _openAccountViewModels.remove(vm);
+    vm.dispose();
+  }
+
+  Future<void> _editInstallment(
+    AccountDetailViewModel accountVM,
+    InstallmentPlan? plan,
+  ) async {
+    final form = InstallmentFormViewModel(
+      widget.installmentRepository,
+      ledger: accountVM.ledger,
+      accountId: accountVM.account!.id,
+      editing: plan,
+    );
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => InstallmentFormView(viewModel: form)),
+    );
+    form.dispose();
+    await accountVM.load();
+    await _refreshInstallments();
+  }
+
+  Future<void> _openInstallment(
+    AccountDetailViewModel accountVM,
+    int id,
+  ) async {
+    final vm = InstallmentPlanViewModel(
+      widget.installmentRepository,
+      planId: id,
+      ledger: accountVM.ledger,
+    );
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => InstallmentPlanView(
+          viewModel: vm,
+          onEdit: (plan) => _editInstallment(accountVM, plan),
+          onOpenMovement: (movement) => Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (_) => MovementDetailView(
+                movement: movement,
+                viewModel: accountVM.ledger,
+                onCategorize: () =>
+                    _categorizeMovement(movement, source: accountVM.ledger),
+                onRefund: () =>
+                    _refundMovement(movement, source: accountVM.ledger),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    vm.dispose();
+    await accountVM.load();
+    await _refreshInstallments();
   }
 
   static const _destinations = [
@@ -188,6 +355,8 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _installmentTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _accountsViewModel.dispose();
     _movementsViewModel.dispose();
     _viewModel.dispose();
@@ -196,13 +365,13 @@ class _AppShellState extends State<AppShell> {
 
   Widget _page(AppSection section) => switch (section) {
     AppSection.home => HomeView(
-      onNavigate: _viewModel.selectSection,
+      onNavigate: _selectSection,
       viewModel: _movementsViewModel,
     ),
     AppSection.movements => MovementsView(
       viewModel: _movementsViewModel,
       onCreate: _createMovement,
-      onOpenAccounts: () => _viewModel.selectSection(AppSection.accounts),
+      onOpenAccounts: () => _selectSection(AppSection.accounts),
       onManageCategories: _manageCategories,
       onCategorize: _categorizeMovement,
       onRefund: _refundMovement,
@@ -210,9 +379,7 @@ class _AppShellState extends State<AppShell> {
     AppSection.accounts => AccountsView(
       viewModel: _accountsViewModel,
       onCreate: _createAccount,
-      onLinkDebitCard: _linkDebitCard,
-      onEdit: _createAccount,
-      onEditDebit: _linkDebitCard,
+      onOpen: _openAccountDetail,
       onManageInstitutions: _manageCategories,
     ),
     AppSection.planning => const PlanningView(),
@@ -256,8 +423,8 @@ class _AppShellState extends State<AppShell> {
                       NavigationRail(
                         labelType: NavigationRailLabelType.all,
                         selectedIndex: selectedIndex,
-                        onDestinationSelected: (index) => _viewModel
-                            .selectSection(_destinations[index].section),
+                        onDestinationSelected: (index) =>
+                            _selectSection(_destinations[index].section),
                         destinations: [
                           for (final destination in _destinations)
                             NavigationRailDestination(
@@ -276,8 +443,8 @@ class _AppShellState extends State<AppShell> {
                   ? null
                   : NavigationBar(
                       selectedIndex: selectedIndex,
-                      onDestinationSelected: (index) => _viewModel
-                          .selectSection(_destinations[index].section),
+                      onDestinationSelected: (index) =>
+                          _selectSection(_destinations[index].section),
                       destinations: [
                         for (final destination in _destinations)
                           NavigationDestination(
@@ -286,24 +453,17 @@ class _AppShellState extends State<AppShell> {
                           ),
                       ],
                     ),
-              floatingActionButton: FloatingActionButton.extended(
-                onPressed: _viewModel.section == AppSection.accounts
-                    ? (_accountsViewModel.status == AccountsStatus.ready
-                          ? _createAccount
-                          : null)
-                    : (_movementsViewModel.status == MovementsStatus.ready
+              floatingActionButton: _viewModel.section == AppSection.accounts
+                  ? null
+                  : FloatingActionButton.extended(
+                      onPressed:
+                          (_movementsViewModel.status == MovementsStatus.ready
                           ? _createMovement
                           : null),
-                icon: const Icon(Icons.add),
-                label: Text(
-                  _viewModel.section == AppSection.accounts
-                      ? 'Agregar cuenta'
-                      : 'Registrar',
-                ),
-                tooltip: _viewModel.section == AppSection.accounts
-                    ? 'Agregar cuenta'
-                    : 'Registrar movimiento',
-              ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Registrar'),
+                      tooltip: 'Registrar movimiento',
+                    ),
             );
           },
         );

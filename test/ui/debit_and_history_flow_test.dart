@@ -1,3 +1,7 @@
+import '../support/account_details.dart';
+
+import 'package:mi_quetzal/ui/accounts/account_detail_view.dart';
+
 import '../support/movement_details.dart';
 
 import 'dart:async';
@@ -70,6 +74,7 @@ void main() {
 
   Future<void> openLink(WidgetTester tester) async {
     await boot(tester, 'Cuentas');
+    await openAccountDetails(tester, 1);
     await press(tester, 'Vincular débito');
   }
 
@@ -123,9 +128,12 @@ void main() {
       await openLink(tester);
       await fillCard(tester);
       await press(tester, 'Vincular tarjeta');
+      if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
+        await closeAccountDetails(tester);
+      }
       expect(find.text('Tarjeta de débito vinculada'), findsOneWidget);
       expect(find.text('Débito de prueba'), findsOneWidget);
-      expect(find.text('Entidad financiera: Sin especificar'), findsWidgets);
+      expect(find.text('Entidad financiera: Sin especificar'), findsNothing);
       expect(find.text('GTQ 1,000.00'), findsNWidgets(2));
       expect(accounts.stored, hasLength(4));
       await tester.pumpWidget(const SizedBox());
@@ -141,18 +149,8 @@ void main() {
     accounts = FakeAccountRepository();
     movements = FakeMovementRepository(accounts);
     await boot(tester, 'Cuentas');
-    expect(
-      tester
-          .widget<OutlinedButton>(
-            find.widgetWithText(OutlinedButton, 'Vincular débito'),
-          )
-          .onPressed,
-      isNull,
-    );
-    expect(
-      find.text('Para vincular débito, primero crea una cuenta bancaria.'),
-      findsOneWidget,
-    );
+    expect(find.text('Vincular débito'), findsNothing);
+    expect(find.text('Nueva cuenta'), findsOneWidget);
   });
 
   testWidgets('Fallo al vincular conserva el formulario y permite reintentar', (
@@ -162,6 +160,9 @@ void main() {
     await openLink(tester);
     await fillCard(tester);
     await press(tester, 'Vincular tarjeta');
+    if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
+      await closeAccountDetails(tester);
+    }
     expect(
       find.textContaining('No se pudo guardar la tarjeta'),
       findsOneWidget,
@@ -173,6 +174,9 @@ void main() {
     expect(accounts.cards, isEmpty);
     accounts.failSave = false;
     await press(tester, 'Vincular tarjeta');
+    if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
+      await closeAccountDetails(tester);
+    }
     expect(accounts.cards, hasLength(1));
   });
 
@@ -209,6 +213,9 @@ void main() {
     await openLink(tester);
     await fillCard(tester);
     await press(tester, 'Vincular tarjeta');
+    if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
+      await closeAccountDetails(tester);
+    }
     await tester.tap(find.text('Movimientos'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Registrar'));
@@ -303,6 +310,9 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
     await press(tester, 'Vincular tarjeta');
+    if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
+      await closeAccountDetails(tester);
+    }
     expect(accounts.cards.single.details.lastFour, '0042');
     expect(tester.takeException(), isNull);
   });

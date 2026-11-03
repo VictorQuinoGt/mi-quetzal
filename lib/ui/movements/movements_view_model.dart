@@ -10,6 +10,7 @@ import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
+import '../../domain/models/installment_plan.dart';
 import '../../domain/rules/movement_rules.dart';
 
 enum MovementsStatus { loading, ready, error }
@@ -193,6 +194,8 @@ class MovementsViewModel extends ChangeNotifier {
 
   MovementsStatus get status => _status;
   List<Account> get accounts => _snapshot?.accounts ?? const [];
+  List<InstallmentPlan> get installmentPlans =>
+      _snapshot?.installmentPlans ?? const [];
   List<FinancialInstitution> get financialInstitutions =>
       _snapshot?.financialInstitutions ?? const [];
   FinancialInstitution? institutionById(int? id) {

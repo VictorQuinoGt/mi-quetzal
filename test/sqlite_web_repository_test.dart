@@ -1,3 +1,5 @@
+import 'support/migration_expectations.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_account_repository.dart';
@@ -20,6 +22,11 @@ import 'domain/categories_and_summary_test.dart' as categories_summary_tests;
 import 'domain/refund_test.dart' as refund_tests;
 import 'domain/multicurrency_account_test.dart' as multicurrency_tests;
 import 'domain/financial_institution_test.dart' as financial_institution_tests;
+import 'domain/account_activity_test.dart' as account_activity_tests;
+import 'domain/installment_calendar_test.dart' as installment_calendar_tests;
+
+import 'package:mi_quetzal/data/repositories/sqlite_installment_repository.dart';
+import 'package:mi_quetzal/domain/models/installment_plan.dart';
 
 import 'package:mi_quetzal/domain/models/financial_institution.dart';
 
@@ -35,7 +42,177 @@ void main() {
     refund_tests.main();
     multicurrency_tests.main();
     financial_institution_tests.main();
+    account_activity_tests.main();
+    installment_calendar_tests.main();
   }
+  test('SQLite web migra v8, recupera cuotas, redondea y concilia sin duplicar al reabrir', () async {
+    final factory = createDatabaseFactoryFfiWeb(
+      options: SqfliteFfiWebOptions(
+        sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+        sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+        indexedDbName: 'mi_quetzal_browser_tests',
+      ),
+    );
+    final path =
+        'test_installments_${DateTime.now().microsecondsSinceEpoch}.db';
+    var now = DateTime(2026, 1, 30);
+    final old = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 8,
+        onCreate: (db, version) => LocalDatabase.migrate(db, 0, version),
+      ),
+    );
+    await old.insert('accounts', {
+      'id': 1,
+      'name': 'Crédito web sintético',
+      'type': 'creditCard',
+      'currency': 'gtq',
+      'opening_minor': 0,
+      'credit_limit_minor': 100000,
+      'opening_date': '2025-01-01',
+    });
+    await old.close();
+    final database = LocalDatabase(factory: factory, path: path);
+    addTearDown(() async {
+      await database.close();
+      await factory.deleteDatabase(path);
+    });
+    final plans = SqliteInstallmentRepository(database, now: () => now);
+    await plans.createPlan(
+      InstallmentDraft(
+        description: 'Plan web sintético',
+        accountId: 1,
+        originalAmount: Money(1000, Currency.gtq),
+        count: 3,
+        monthlyAmount: Money(333, Currency.gtq),
+        firstDate: DateTime(2026, 1, 31),
+        chargeDay: 31,
+        previousCount: 0,
+        referenceDate: now,
+        costMode: InstallmentCostMode.noInterest,
+        limitMode: InstallmentLimitMode.ordinary,
+      ),
+    );
+    now = DateTime(2026, 4, 1);
+    final snapshots = await Future.wait(
+      List.generate(4, (_) => plans.generateDue()),
+    );
+    for (final snapshot in snapshots) {
+      expect(snapshot.movements, hasLength(3));
+      expect(snapshot.accounts.single.currentBalance.minorUnits, 1000);
+      expect(
+        snapshot.installmentPlans.single.state,
+        InstallmentPlanState.completed,
+      );
+    }
+    final movements = SqliteMovementRepository(database, now: () => now);
+    final manual = await movements.createMovement(
+      MovementDetails(
+        type: MovementType.expense,
+        accountId: 1,
+        amount: Money(334, Currency.gtq),
+        date: DateTime(2026, 3, 31),
+        description: 'Cargo bancario sintético',
+      ),
+    );
+    final source = manual.movements
+        .firstWhere((m) => !m.details.isGenerated)
+        .id;
+    await plans.reconcile(1, 3, source, 'Referencia sintética');
+    await database.close();
+    final reopened = await movements.getSnapshot();
+    expect(reopened.accounts.single.currentBalance.minorUnits, 1000);
+    expect(
+      MonthlySummary.calculate(
+        reopened,
+        2026,
+        3,
+      ).currencies.single.expense.minorUnits,
+      334,
+    );
+    expect(
+      await (await database.database).rawQuery('PRAGMA foreign_key_check'),
+      isEmpty,
+    );
+  }, skip: !kIsWeb);
+  test(
+    'SQLite web migra v7 y conserva fechas completas independientes al reabrir',
+    () async {
+      final factory = createDatabaseFactoryFfiWeb(
+        options: SqfliteFfiWebOptions(
+          sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+          sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+          indexedDbName: 'mi_quetzal_browser_tests',
+        ),
+      );
+      final path =
+          'test_credit_dates_${DateTime.now().microsecondsSinceEpoch}.db';
+      final database = LocalDatabase(factory: factory, path: path);
+      addTearDown(() async {
+        await database.close();
+        await factory.deleteDatabase(path);
+      });
+      final old = await factory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 7,
+          onCreate: (db, version) => LocalDatabase.migrate(db, 0, version),
+        ),
+      );
+      await old.insert('accounts', {
+        'id': 7,
+        'name': 'Crédito sintético',
+        'type': 'creditCard',
+        'currency': 'gtq',
+        'opening_minor': 1000,
+        'secondary_opening_minor': 2000,
+        'credit_limit_minor': 5000,
+        'opening_date': '2026-10-01',
+      });
+      await old.insert('movements', {
+        'id': 42,
+        'type': 'expense',
+        'account_id': 7,
+        'amount_minor': 125,
+        'currency': 'usd',
+        'occurred_on': '2026-11-01',
+        'description': 'Compra USD sintética',
+      });
+      final originalRows = await old.query('movements');
+      await old.close();
+      final accounts = SqliteAccountRepository(database);
+      final migrated = (await accounts.getAccounts()).single;
+      expect(migrated.details.nextClosingDate, isNull);
+      expect(migrated.details.nextPaymentDueDate, isNull);
+      await accounts.updateAccount(
+        7,
+        AccountDetails(
+          name: 'Crédito actualizado',
+          type: AccountType.creditCard,
+          openingBalance: Money(1000, Currency.gtq),
+          secondaryOpeningBalance: Money(2000, Currency.usd),
+          creditLimit: Money(5000, Currency.gtq),
+          openingDate: DateTime(2026, 10, 1),
+          nextClosingDate: DateTime(2026, 11, 20),
+          nextPaymentDueDate: DateTime(2026, 11, 5),
+        ),
+      );
+      await database.close();
+      final account = (await accounts.getAccounts()).single;
+      expect(account.details.nextClosingDate, DateTime(2026, 11, 20));
+      expect(account.details.nextPaymentDueDate, DateTime(2026, 11, 5));
+      expect(account.currentBalance.minorUnits, 1000);
+      expect(account.secondaryCurrentBalance!.minorUnits, 2125);
+      expect(account.availableCreditFor(Currency.gtq)!.minorUnits, 4000);
+      expect(account.availableCreditFor(Currency.usd), isNull);
+      expectPreservedRows(
+        await (await database.database).query('movements'),
+        originalRows,
+      );
+    },
+    skip: !kIsWeb,
+  );
   test('SQLite web migra v6, conserva historial y persiste entidades y terminación bancaria', () async {
     final factory = createDatabaseFactoryFfiWeb(
       options: SqfliteFfiWebOptions(
@@ -124,7 +301,7 @@ void main() {
       "Entidad ' sintética",
     );
     final db = await database.database;
-    expect(await db.query('movements'), originalRows);
+    expectPreservedRows(await db.query('movements'), originalRows);
     await expectLater(
       db.delete(
         'financial_institutions',

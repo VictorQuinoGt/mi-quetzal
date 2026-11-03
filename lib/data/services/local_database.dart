@@ -2,11 +2,12 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common/sqlite_api.dart';
 
 class LocalDatabase {
-  LocalDatabase({required this.factory, this.path});
+  LocalDatabase({required this.factory, this.path, this.singleInstance = true});
 
-  static const schemaVersion = 7;
+  static const schemaVersion = 9;
   final DatabaseFactory factory;
   final String? path;
+  final bool singleInstance;
   Future<Database>? _opening;
 
   Future<Database> get database => _opening ??= _open();
@@ -18,6 +19,7 @@ class LocalDatabase {
       return await factory.openDatabase(
         location,
         options: OpenDatabaseOptions(
+          singleInstance: singleInstance,
           version: schemaVersion,
           onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
           onCreate: (db, version) => migrate(db, 0, version),
@@ -161,6 +163,72 @@ class LocalDatabase {
       );
       await db.execute(
         "ALTER TABLE accounts ADD COLUMN bank_last_four TEXT CHECK(bank_last_four IS NULL OR (type = 'bank' AND length(bank_last_four) = 4 AND bank_last_four NOT GLOB '*[^0-9]*'))",
+      );
+    }
+    if (from < 8 && to >= 8) {
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN next_closing_date TEXT CHECK(next_closing_date IS NULL OR type = 'creditCard')",
+      );
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN next_payment_due_date TEXT CHECK(next_payment_due_date IS NULL OR type = 'creditCard')",
+      );
+    }
+    if (from < 9 && to >= 9) {
+      await db.execute('''CREATE TABLE installment_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT NOT NULL, original_description TEXT NOT NULL,
+        account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+        category_id INTEGER REFERENCES categories(id) ON DELETE RESTRICT, currency TEXT NOT NULL CHECK(currency IN ('gtq','usd')),
+        original_minor INTEGER NOT NULL CHECK(original_minor BETWEEN 1 AND 9007199254740991),
+        count INTEGER NOT NULL CHECK(count BETWEEN 1 AND 600), monthly_minor INTEGER NOT NULL CHECK(monthly_minor BETWEEN 1 AND 9007199254740991),
+        first_date TEXT NOT NULL, charge_day INTEGER NOT NULL CHECK(charge_day BETWEEN 1 AND 31),
+        previous_count INTEGER NOT NULL CHECK(previous_count BETWEEN 0 AND count), reference_date TEXT NOT NULL,
+        cost_mode TEXT NOT NULL CHECK(cost_mode IN ('noInterest','fixedBreakdown','unknown')),
+        limit_mode TEXT NOT NULL CHECK(limit_mode IN ('ordinary','additional')),
+        monthly_principal INTEGER, monthly_interest INTEGER, monthly_fee INTEGER,
+        original_movement_id INTEGER UNIQUE REFERENCES movements(id) ON DELETE RESTRICT,
+        cancelled INTEGER NOT NULL DEFAULT 0 CHECK(cancelled IN (0,1)))''');
+      await db.execute(
+        '''CREATE TABLE installments (
+        plan_id INTEGER NOT NULL REFERENCES installment_plans(id) ON DELETE RESTRICT, number INTEGER NOT NULL CHECK(number > 0),
+        due_date TEXT NOT NULL, amount_minor INTEGER NOT NULL CHECK(amount_minor BETWEEN 1 AND 9007199254740991),
+        principal_minor INTEGER, interest_minor INTEGER, fee_minor INTEGER,
+        previously_loaded INTEGER NOT NULL CHECK(previously_loaded IN (0,1)),
+        movement_id INTEGER UNIQUE REFERENCES movements(id) ON DELETE RESTRICT,
+        PRIMARY KEY(plan_id,number), CHECK(previously_loaded = 0 OR movement_id IS NULL))''',
+      );
+      await db.execute(
+        'ALTER TABLE movements ADD COLUMN installment_plan_id INTEGER REFERENCES installment_plans(id) ON DELETE RESTRICT',
+      );
+      await db.execute(
+        'ALTER TABLE movements ADD COLUMN installment_number INTEGER',
+      );
+      await db.execute(
+        "ALTER TABLE movements ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual' CHECK(origin IN ('manual','installmentCharge','installmentConversion'))",
+      );
+      await db.execute(
+        'ALTER TABLE movements ADD COLUMN recognized_expense_minor INTEGER CHECK(recognized_expense_minor IS NULL OR recognized_expense_minor BETWEEN 0 AND amount_minor)',
+      );
+      await db.execute(
+        'CREATE UNIQUE INDEX movement_installment_identity ON movements(installment_plan_id, installment_number) WHERE installment_plan_id IS NOT NULL',
+      );
+      await db.execute(
+        '''CREATE TABLE installment_reconciliations (
+        source_movement_id INTEGER PRIMARY KEY REFERENCES movements(id) ON DELETE RESTRICT,
+        target_movement_id INTEGER UNIQUE NOT NULL REFERENCES movements(id) ON DELETE RESTRICT,
+        reference TEXT NOT NULL, CHECK(source_movement_id <> target_movement_id))''',
+      );
+      await db.execute('''CREATE TABLE installment_revisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER NOT NULL REFERENCES installment_plans(id),
+        recorded_on TEXT NOT NULL, note TEXT NOT NULL)''');
+      await db.execute(
+        '''CREATE TRIGGER installments_history BEFORE UPDATE ON installments
+        WHEN OLD.movement_id IS NOT NULL OR OLD.previously_loaded = 1
+        BEGIN SELECT RAISE(ABORT, 'La cuota cargada conserva su histórico'); END''',
+      );
+      await db.execute(
+        '''CREATE TRIGGER categories_with_plans BEFORE UPDATE OF kind ON categories
+        WHEN NEW.kind <> 'expense' AND EXISTS(SELECT 1 FROM installment_plans WHERE category_id = NEW.id)
+        BEGIN SELECT RAISE(ABORT, 'La categoría está vinculada a cuotas'); END''',
       );
     }
   }

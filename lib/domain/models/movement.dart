@@ -2,6 +2,8 @@ import 'money.dart';
 
 enum MovementType { expense, income, transfer, creditPayment, refund }
 
+enum MovementOrigin { manual, installmentCharge, installmentConversion }
+
 final class MovementValidationException implements Exception {
   const MovementValidationException(this.field, this.message);
   final String field;
@@ -18,11 +20,43 @@ final class MovementDetails {
     int? debitCardId,
     int? categoryId,
     int? originalMovementId,
+    MovementOrigin origin = MovementOrigin.manual,
+    int? installmentPlanId,
+    int? installmentNumber,
+    int? recognizedExpenseMinor,
+    int? reconciledIntoId,
+    bool reconciled = false,
     required Money amount,
     required DateTime date,
     required String description,
   }) {
     final text = description.trim();
+    if (origin != MovementOrigin.manual &&
+        (type != MovementType.expense ||
+            installmentPlanId == null ||
+            installmentPlanId <= 0 ||
+            installmentNumber == null ||
+            installmentNumber < 0 ||
+            (origin == MovementOrigin.installmentCharge &&
+                installmentNumber == 0) ||
+            recognizedExpenseMinor == null ||
+            recognizedExpenseMinor < 0 ||
+            recognizedExpenseMinor > amount.minorUnits ||
+            debitCardId != null)) {
+      throw const MovementValidationException(
+        'installment',
+        'El cargo de cuota no es compatible con su plan.',
+      );
+    }
+    if (origin == MovementOrigin.manual &&
+        (installmentPlanId != null ||
+            installmentNumber != null ||
+            recognizedExpenseMinor != null)) {
+      throw const MovementValidationException(
+        'installment',
+        'Los datos de cuota requieren un cargo generado por el plan.',
+      );
+    }
     if (text.isEmpty || text.length > 120) {
       throw const MovementValidationException(
         'description',
@@ -80,6 +114,12 @@ final class MovementDetails {
       amount: amount,
       date: DateTime(date.year, date.month, date.day),
       description: text,
+      origin: origin,
+      installmentPlanId: installmentPlanId,
+      installmentNumber: installmentNumber,
+      recognizedExpenseMinor: recognizedExpenseMinor,
+      reconciledIntoId: reconciledIntoId,
+      reconciled: reconciled,
     );
   }
   const MovementDetails._({
@@ -92,6 +132,12 @@ final class MovementDetails {
     required this.amount,
     required this.date,
     required this.description,
+    required this.origin,
+    required this.installmentPlanId,
+    required this.installmentNumber,
+    required this.recognizedExpenseMinor,
+    required this.reconciledIntoId,
+    required this.reconciled,
   });
   final MovementType type;
   final int accountId;
@@ -102,7 +148,19 @@ final class MovementDetails {
   final Money amount;
   final DateTime date;
   final String description;
-  bool get isExpense => type == MovementType.expense;
+  final MovementOrigin origin;
+  final int? installmentPlanId;
+  final int? installmentNumber;
+  final int? recognizedExpenseMinor;
+  final int? reconciledIntoId;
+  final bool reconciled;
+  bool get isGenerated => origin != MovementOrigin.manual;
+  bool get isExpense =>
+      type == MovementType.expense &&
+      reconciledIntoId == null &&
+      (recognizedExpenseMinor ?? amount.minorUnits) > 0;
+  Money get reportExpense =>
+      Money(recognizedExpenseMinor ?? amount.minorUnits, amount.currency);
   bool get isIncome => type == MovementType.income;
   bool get isRefund => type == MovementType.refund;
 
@@ -113,6 +171,12 @@ final class MovementDetails {
     debitCardId: debitCardId,
     categoryId: id,
     originalMovementId: originalMovementId,
+    origin: origin,
+    installmentPlanId: installmentPlanId,
+    installmentNumber: installmentNumber,
+    recognizedExpenseMinor: recognizedExpenseMinor,
+    reconciledIntoId: reconciledIntoId,
+    reconciled: reconciled,
     amount: amount,
     date: date,
     description: description,

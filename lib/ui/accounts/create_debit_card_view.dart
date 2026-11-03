@@ -8,8 +8,14 @@ import 'accounts_view_model.dart';
 import 'account_labels.dart';
 
 class CreateDebitCardView extends StatefulWidget {
-  const CreateDebitCardView({super.key, required this.viewModel, this.card});
+  const CreateDebitCardView({
+    super.key,
+    required this.viewModel,
+    this.card,
+    this.initialAccountId,
+  });
   final AccountsViewModel viewModel;
+  final int? initialAccountId;
   final DebitCard? card;
   @override
   State<CreateDebitCardView> createState() => _CreateDebitCardViewState();
@@ -25,7 +31,7 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
     super.initState();
     _name.text = widget.card?.details.name ?? '';
     _lastFour.text = widget.card?.details.lastFour ?? '';
-    _accountId = widget.card?.details.accountId;
+    _accountId = widget.card?.details.accountId ?? widget.initialAccountId;
     _institutionId = widget.card?.details.financialInstitutionId;
   }
 

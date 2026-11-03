@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/movement.dart';
 import '../core/page_content.dart';
 import 'movement_detail_view.dart';
+import 'movement_row.dart';
 import 'movement_filters.dart';
 import 'movements_view_model.dart';
 
@@ -117,8 +118,12 @@ class MovementsView extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final movement in viewModel.visibleMovements) ...[
-                      _StatementRow(
+                      MovementRow(
                         movement: movement,
+                        category: viewModel
+                            .categoryById(viewModel.categoryIdFor(movement))
+                            ?.details
+                            .name,
                         onDetails: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (context) => MovementDetailView(
@@ -141,89 +146,4 @@ class MovementsView extends StatelessWidget {
       );
     },
   );
-}
-
-class _StatementRow extends StatelessWidget {
-  const _StatementRow({required this.movement, required this.onDetails});
-  final Movement movement;
-  final VoidCallback onDetails;
-  @override
-  Widget build(BuildContext context) {
-    final details = movement.details;
-    final date = MaterialLocalizations.of(context)
-        .formatMediumDate(details.date);
-    final theme = Theme.of(context);
-    final button = IconButton(
-      key: ValueKey('movement-detail-${movement.id}'),
-      onPressed: onDetails,
-      tooltip: 'Ver detalle: ${details.description}',
-      icon: const Icon(Icons.help_outline),
-    );
-    return InkWell(
-      key: ValueKey('movement-${movement.id}'),
-      onTap: onDetails,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth >= 560) {
-              return Row(
-                children: [
-                  SizedBox(width: 110, child: Text(date)),
-                  Expanded(
-                    child: Text(
-                      details.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 180,
-                    child: Text(
-                      details.amount.formatted,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                  ),
-                  button,
-                ],
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        details.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                    ),
-                    button,
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: [
-                    Text(date),
-                    Text(
-                      details.amount.formatted,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
 }

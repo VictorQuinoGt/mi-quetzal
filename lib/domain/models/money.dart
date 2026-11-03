@@ -72,6 +72,9 @@ final class Money {
     return '${currency.code} ${minorUnits < 0 ? '-' : ''}$whole.$cents';
   }
 
+  String get compact =>
+      '${currency == Currency.gtq ? 'Q' : 'US\$'}\u00a0${formatted.substring(4)}';
+
   @override
   bool operator ==(Object other) =>
       other is Money &&

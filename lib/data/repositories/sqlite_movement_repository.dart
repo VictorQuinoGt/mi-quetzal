@@ -4,6 +4,7 @@ import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
 import '../../domain/rules/movement_rules.dart';
 import '../services/ledger_reader.dart';
+import '../services/installment_generator.dart';
 import '../services/local_database.dart';
 import 'movement_repository.dart';
 
@@ -18,6 +19,7 @@ class SqliteMovementRepository implements MovementRepository {
   ) async {
     final db = await _database.database;
     return db.transaction((tx) async {
+      await generateDueInstallments(tx, _now());
       await tx.insert('financial_institutions', {'name': details.name});
       return readLedger(tx);
     });
@@ -26,13 +28,23 @@ class SqliteMovementRepository implements MovementRepository {
   @override
   Future<LedgerSnapshot> getSnapshot() async {
     final db = await _database.database;
-    return db.transaction(readLedger);
+    return db.transaction((tx) async {
+      await generateDueInstallments(tx, _now());
+      return readLedger(tx);
+    });
   }
 
   @override
   Future<LedgerSnapshot> createMovement(MovementDetails details) async {
+    if (details.isGenerated || details.reconciledIntoId != null) {
+      throw const MovementValidationException(
+        'installment',
+        'Los cargos automáticos se registran desde el plan.',
+      );
+    }
     final db = await _database.database;
     return db.transaction((transaction) async {
+      await generateDueInstallments(transaction, _now());
       final previous = await readLedger(transaction);
       MovementRules.validateRegistration(
         details,
@@ -64,6 +76,7 @@ class SqliteMovementRepository implements MovementRepository {
   Future<LedgerSnapshot> createCategory(CategoryDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
+      await generateDueInstallments(transaction, _now());
       await transaction.insert('categories', {
         'name': details.name,
         'kind': details.kind.name,
@@ -76,6 +89,7 @@ class SqliteMovementRepository implements MovementRepository {
   Future<LedgerSnapshot> assignCategory(int movementId, int? categoryId) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
+      await generateDueInstallments(transaction, _now());
       final previous = await readLedger(transaction);
       final candidates = previous.movements.where((m) => m.id == movementId);
       if (candidates.isEmpty ||

@@ -1,3 +1,5 @@
+import '../support/migration_expectations.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -105,7 +107,10 @@ void main() {
       null,
       null,
     ]);
-    expect(await (await database.database).query('movements'), rows);
+    expectPreservedRows(
+      await (await database.database).query('movements'),
+      rows,
+    );
   });
   test('Fallo de migración conserva versión y filas anteriores', () async {
     final old = await oldDatabase();

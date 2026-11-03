@@ -1,3 +1,4 @@
+import '../../support/account_details.dart';
 import '../../support/movement_details.dart';
 
 import 'dart:async';
@@ -113,8 +114,9 @@ void main() {
         Money(2001, Currency.usd),
       );
       expect(find.text('GTQ 10.29'), findsOneWidget);
-      expect(find.text('USD 20.01'), findsOneWidget);
-      expect(find.text('Límite de crédito: USD 500.00'), findsOneWidget);
+      expect(find.text(r'USD 20.01'), findsOneWidget);
+      await openAccountDetails(tester, 3);
+      expect(find.text(r'US$ 500.00'), findsOneWidget);
     },
   );
   testWidgets(
@@ -122,6 +124,7 @@ void main() {
     (tester) async {
       await record(2, Currency.usd, 125);
       await boot(tester);
+      await openAccountDetails(tester, 2);
       await press(tester, find.byTooltip('Editar Crédito sintético'));
       expect(
         tester
@@ -136,12 +139,12 @@ void main() {
       await press(tester, find.text('Guardar cuenta'));
       expect(accounts.stored, hasLength(2));
       expect(find.text('Crédito actualizado'), findsOneWidget);
-      expect(find.text('USD 31.25'), findsOneWidget);
-      expect(find.text('GTQ 5.00'), findsOneWidget);
+      expect(find.text(r'US$ 31.25'), findsOneWidget);
+      expect(find.text('Q 5.00'), findsOneWidget);
       expect(movements.stored.single.details.amount.minorUnits, 125);
       await tester.pumpWidget(const SizedBox());
       await boot(tester);
-      expect(find.text('USD 31.25'), findsOneWidget);
+      expect(find.text(r'USD 31.25'), findsOneWidget);
     },
   );
   testWidgets(
@@ -149,6 +152,7 @@ void main() {
     (tester) async {
       await record(1, Currency.gtq, 1000, debit: 1);
       await boot(tester);
+      await openAccountDetails(tester, 1);
       await press(tester, find.byTooltip('Editar Banco sintético'));
       await choose(
         tester,
@@ -157,10 +161,12 @@ void main() {
       );
       await tester.enterText(field('Saldo inicial'), '200');
       await press(tester, find.text('Guardar cuenta'));
+      await closeAccountDetails(tester);
       expect(find.text('GTQ 190.00'), findsNWidgets(2));
       expect(find.text('Cuentas bancarias'), findsOneWidget);
-      expect(find.text('Ahorro'), findsOneWidget);
+      expect(find.textContaining('Ahorro'), findsOneWidget);
       expect(movements.snapshot.accounts, hasLength(2));
+      await openAccountDetails(tester, 1, debit: true);
       await press(tester, find.byTooltip('Editar Débito sintético'));
       await tester.enterText(field('Alias de tarjeta'), 'Débito actualizado');
       await press(tester, find.text('Guardar tarjeta'));
@@ -203,7 +209,7 @@ void main() {
       await tester.tap(find.text('Cuentas'));
       await tester.pumpAndSettle();
       expect(find.text('GTQ 5.00'), findsOneWidget);
-      expect(find.text('USD 21.00'), findsOneWidget);
+      expect(find.text(r'USD 21.00'), findsOneWidget);
     },
   );
   testWidgets(
@@ -249,6 +255,7 @@ void main() {
     'Fallo al editar conserva datos y bloquea doble envío y volver durante reintento',
     (tester) async {
       await boot(tester);
+      await openAccountDetails(tester, 2);
       await press(tester, find.byTooltip('Editar Crédito sintético'));
       await tester.enterText(field('Alias'), 'Alias editado');
       accounts.failSave = true;
@@ -290,6 +297,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await boot(tester);
       expect(tester.takeException(), isNull);
+      await openAccountDetails(tester, 2);
       await press(tester, find.byTooltip('Editar Crédito sintético'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
       addTearDown(tester.view.resetViewInsets);

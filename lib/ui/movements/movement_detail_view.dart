@@ -36,7 +36,7 @@ class MovementDetailView extends StatelessWidget {
         body: SafeArea(
           child: PageContent(
             children: [
-              Text(details.type.label, style: theme.textTheme.labelLarge),
+              Text(details.operationLabel, style: theme.textTheme.labelLarge),
               const SizedBox(height: 12),
               Text(details.description, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 16),
@@ -50,6 +50,28 @@ class MovementDetailView extends StatelessWidget {
                     .formatMediumDate(details.date),
               ),
               const Divider(height: 32),
+              if (details.isGenerated) ...[
+                Text(
+                  'Plan ${details.installmentPlanId} · ${details.origin == MovementOrigin.installmentCharge ? 'Cuota ${details.installmentNumber}' : 'Reclasificación de capital futuro'}',
+                ),
+                Text(
+                  details.reconciled
+                      ? 'Cargo conciliado con registro bancario'
+                      : 'Generado por la app · Pendiente de conciliación',
+                ),
+                const Text(
+                  'Registro de control personal; no ejecuta cobros bancarios.',
+                ),
+                if (details.origin == MovementOrigin.installmentCharge)
+                  Text(
+                    'Gasto reconocido en este cargo: ${details.reportExpense.compact}',
+                  ),
+                const SizedBox(height: 16),
+              ],
+              if (details.reconciledIntoId != null)
+                Text(
+                  'Referencia vinculada al movimiento ${details.reconciledIntoId}. No vuelve a sumar deuda ni gasto.',
+                ),
               Text(
                 'Cuenta: ${origin.details.name}${origin.details.lastFour == null ? '' : ' · •••• ${origin.details.lastFour}'}',
               ),
@@ -89,7 +111,7 @@ class MovementDetailView extends StatelessWidget {
                     ),
                   ),
               ],
-              if (details.isExpense) ...[
+              if (details.isExpense && !details.isGenerated) ...[
                 const SizedBox(height: 16),
                 Text(
                   'Pendiente de devolver: ${viewModel.remainingRefund(current).formatted}',

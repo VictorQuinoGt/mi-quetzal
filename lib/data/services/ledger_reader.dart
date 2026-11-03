@@ -7,8 +7,11 @@ import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
+import 'installment_codec.dart';
 
 Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
+  final plans = await readPlans(db);
+  final reconciliations = await db.query('installment_reconciliations');
   final accountRows = await db.query('accounts', orderBy: 'id ASC');
   final cardRows = await db.query('debit_cards', orderBy: 'id ASC');
   final categoryRows = await db.query('categories', orderBy: 'id ASC');
@@ -35,6 +38,12 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
             (row['type'] == 'bank' ? row['bank_last_four'] : row['last_four'])
                 as String?,
         financialInstitutionId: row['financial_institution_id'] as int?,
+        nextClosingDate: row['next_closing_date'] == null
+            ? null
+            : DateTime.parse(row['next_closing_date'] as String),
+        nextPaymentDueDate: row['next_payment_due_date'] == null
+            ? null
+            : DateTime.parse(row['next_payment_due_date'] as String),
         bankAccountType: row['bank_account_type'] == null
             ? null
             : BankAccountType.values.byName(row['bank_account_type'] as String),
@@ -58,6 +67,17 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
             debitCardId: row['debit_card_id'] as int?,
             categoryId: row['category_id'] as int?,
             originalMovementId: row['original_movement_id'] as int?,
+            origin: MovementOrigin.values.byName(row['origin'] as String),
+            installmentPlanId: row['installment_plan_id'] as int?,
+            installmentNumber: row['installment_number'] as int?,
+            recognizedExpenseMinor: row['recognized_expense_minor'] as int?,
+            reconciledIntoId: reconciliations
+                .where((r) => r['source_movement_id'] == row['id'])
+                .map((r) => r['target_movement_id'] as int)
+                .firstOrNull,
+            reconciled: reconciliations.any(
+              (r) => r['target_movement_id'] == row['id'],
+            ),
             amount: Money(
               row['amount_minor'] as int,
               Currency.values.byName(row['currency'] as String),
@@ -97,6 +117,7 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
     movements,
     debitCards: debitCards,
     categories: categories,
+    installmentPlans: plans,
     financialInstitutions: [
       for (final row in institutionRows)
         FinancialInstitution(

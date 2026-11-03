@@ -4,6 +4,7 @@ import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
 import '../../domain/rules/account_rules.dart';
 import '../services/ledger_reader.dart';
+import '../services/installment_generator.dart';
 import '../services/local_database.dart';
 import 'account_repository.dart';
 
@@ -48,9 +49,10 @@ class SqliteAccountRepository implements AccountRepository {
   @override
   Future<List<Account>> getAccounts() async {
     final db = await _database.database;
-    return db.transaction(
-      (transaction) async => (await readLedger(transaction)).accounts,
-    );
+    return db.transaction((transaction) async {
+      await generateDueInstallments(transaction, _now());
+      return (await readLedger(transaction)).accounts;
+    });
   }
 
   @override
@@ -69,6 +71,7 @@ class SqliteAccountRepository implements AccountRepository {
   Future<Account> updateAccount(int id, AccountDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
+      await generateDueInstallments(transaction, _now());
       final before = await readLedger(transaction);
       details.validateFinancialInstitution(before.financialInstitutions);
       final matches = before.accounts.where((a) => a.id == id);
@@ -149,6 +152,13 @@ class SqliteAccountRepository implements AccountRepository {
         ? details.lastFour
         : null,
     'financial_institution_id': details.financialInstitutionId,
+    'next_closing_date': details.nextClosingDate?.toIso8601String().substring(
+      0,
+      10,
+    ),
+    'next_payment_due_date': details.nextPaymentDueDate
+        ?.toIso8601String()
+        .substring(0, 10),
     'bank_account_type': details.bankAccountType?.name,
     'secondary_opening_minor': details.secondaryOpeningBalance?.minorUnits,
     'secondary_credit_limit_minor': details.secondaryCreditLimit?.minorUnits,
