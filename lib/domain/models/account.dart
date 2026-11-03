@@ -1,4 +1,5 @@
 import 'money.dart';
+import 'financial_institution.dart';
 
 enum AccountType { cash, bank, creditCard }
 
@@ -16,6 +17,7 @@ final class AccountDetails {
     BankAccountType? bankAccountType,
     Money? secondaryOpeningBalance,
     Money? secondaryCreditLimit,
+    int? financialInstitutionId,
   }) {
     final alias = name.trim();
     if (alias.isEmpty || alias.length > 60) {
@@ -63,11 +65,18 @@ final class AccountDetails {
     }
     if (digits != null &&
         digits.isNotEmpty &&
-        (type != AccountType.creditCard ||
+        ((type != AccountType.creditCard && type != AccountType.bank) ||
             !RegExp(r'^\d{4}$').hasMatch(digits))) {
       throw ArgumentError(
         'Escribe únicamente los últimos cuatro dígitos.',
         'lastFour',
+      );
+    }
+    if (financialInstitutionId != null &&
+        (financialInstitutionId <= 0 || type == AccountType.cash)) {
+      throw ArgumentError(
+        'Selecciona una entidad financiera válida para una cuenta bancaria o tarjeta.',
+        'financialInstitution',
       );
     }
     return AccountDetails._(
@@ -84,6 +93,7 @@ final class AccountDetails {
       bankAccountType: bankAccountType,
       secondaryOpeningBalance: secondaryOpeningBalance,
       secondaryCreditLimit: secondaryCreditLimit,
+      financialInstitutionId: financialInstitutionId,
     );
   }
 
@@ -97,6 +107,7 @@ final class AccountDetails {
     this.bankAccountType,
     this.secondaryOpeningBalance,
     this.secondaryCreditLimit,
+    this.financialInstitutionId,
   });
 
   final String name;
@@ -108,6 +119,17 @@ final class AccountDetails {
   final BankAccountType? bankAccountType;
   final Money? secondaryOpeningBalance;
   final Money? secondaryCreditLimit;
+  final int? financialInstitutionId;
+  void validateFinancialInstitution(List<FinancialInstitution> institutions) {
+    if (financialInstitutionId != null &&
+        !institutions.any((i) => i.id == financialInstitutionId)) {
+      throw ArgumentError(
+        'Selecciona una entidad financiera existente.',
+        'financialInstitution',
+      );
+    }
+  }
+
   List<Money> get openingBalances => [openingBalance, ?secondaryOpeningBalance];
   Money? openingBalanceFor(Currency currency) {
     for (final balance in openingBalances) {

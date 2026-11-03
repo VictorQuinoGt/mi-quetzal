@@ -1,3 +1,5 @@
+import '../../support/movement_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -120,12 +122,15 @@ void main() {
       await tester.ensureVisible(field('Importe'));
       await tester.enterText(field('Importe'), '20');
       await submit(tester);
-      expect(find.text('Banco → Crédito'), findsOneWidget);
+      await openMovementDetails(tester, 1);
+      expect(find.text('Cuenta: Banco'), findsOneWidget);
+      expect(find.text('Destino: Crédito'), findsOneWidget);
       expect(
         find.text('Transferencia · No suma ingresos ni gastos'),
         findsOneWidget,
       );
       expect(movements.stored.single.details.isExpense, isFalse);
+      await closeMovementDetails(tester);
       await tester.tap(find.text('Cuentas'));
       await tester.pumpAndSettle();
       expect(find.text('GTQ 980.00'), findsOneWidget);

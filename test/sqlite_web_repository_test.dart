@@ -19,6 +19,9 @@ import 'domain/movement_filter_test.dart' as movement_filter_tests;
 import 'domain/categories_and_summary_test.dart' as categories_summary_tests;
 import 'domain/refund_test.dart' as refund_tests;
 import 'domain/multicurrency_account_test.dart' as multicurrency_tests;
+import 'domain/financial_institution_test.dart' as financial_institution_tests;
+
+import 'package:mi_quetzal/domain/models/financial_institution.dart';
 
 void main() {
   // En Flutter 3.47/Windows, el ejecutor web pierde separadores en rutas anidadas.
@@ -31,7 +34,107 @@ void main() {
     categories_summary_tests.main();
     refund_tests.main();
     multicurrency_tests.main();
+    financial_institution_tests.main();
   }
+  test('SQLite web migra v6, conserva historial y persiste entidades y terminación bancaria', () async {
+    final factory = createDatabaseFactoryFfiWeb(
+      options: SqfliteFfiWebOptions(
+        sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+        sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+        indexedDbName: 'mi_quetzal_browser_tests',
+      ),
+    );
+    final path =
+        'test_institutions_${DateTime.now().microsecondsSinceEpoch}.db';
+    final database = LocalDatabase(factory: factory, path: path);
+    addTearDown(() async {
+      await database.close();
+      await factory.deleteDatabase(path);
+    });
+    final old = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 6,
+        onCreate: (db, version) => LocalDatabase.migrate(db, 0, version),
+      ),
+    );
+    await old.insert('accounts', {
+      'id': 7,
+      'name': 'Banco anterior sintético',
+      'type': 'bank',
+      'currency': 'gtq',
+      'opening_minor': 1000,
+      'opening_date': '2026-10-01',
+    });
+    await old.insert('debit_cards', {
+      'id': 9,
+      'name': 'Débito anterior sintético',
+      'account_id': 7,
+    });
+    await old.insert('movements', {
+      'id': 42,
+      'type': 'expense',
+      'account_id': 7,
+      'debit_card_id': 9,
+      'amount_minor': 125,
+      'currency': 'gtq',
+      'occurred_on': '2026-11-01',
+      'description': 'Compra anterior sintética',
+    });
+    final originalRows = await old.query('movements');
+    await old.close();
+    final accounts = SqliteAccountRepository(database);
+    final movements = SqliteMovementRepository(
+      database,
+      now: () => DateTime(2026, 11, 2),
+    );
+    final migrated = await movements.getSnapshot();
+    expect(migrated.financialInstitutions, isEmpty);
+    expect(migrated.accounts.single.details.lastFour, isNull);
+    final entity = (await movements.createFinancialInstitution(
+      FinancialInstitutionDetails(name: "Entidad ' sintética"),
+    )).financialInstitutions.single;
+    await accounts.updateAccount(
+      7,
+      AccountDetails(
+        name: 'Banco actualizado sintético',
+        type: AccountType.bank,
+        openingBalance: Money(1000, Currency.gtq),
+        openingDate: DateTime(2026, 10, 1),
+        financialInstitutionId: entity.id,
+        lastFour: '0042',
+      ),
+    );
+    await accounts.updateDebitCard(
+      9,
+      DebitCardDetails(
+        name: 'Débito actualizado sintético',
+        accountId: 7,
+        financialInstitutionId: entity.id,
+      ),
+    );
+    await database.close();
+    final after = await movements.getSnapshot();
+    expect(after.accounts.single.currentBalance.minorUnits, 875);
+    expect(after.accounts.single.details.lastFour, '0042');
+    expect(after.accounts.single.details.financialInstitutionId, entity.id);
+    expect(after.debitCards.single.details.financialInstitutionId, entity.id);
+    expect(
+      after.financialInstitutions.single.details.name,
+      "Entidad ' sintética",
+    );
+    final db = await database.database;
+    expect(await db.query('movements'), originalRows);
+    await expectLater(
+      db.delete(
+        'financial_institutions',
+        where: 'id = ?',
+        whereArgs: [entity.id],
+      ),
+      throwsA(isA<DatabaseException>()),
+    );
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  }, skip: !kIsWeb);
   test('SQLite web migra v5, completa moneda de crédito y edita banco/débito sin alterar historial', () async {
     final factory = createDatabaseFactoryFfiWeb(
       options: SqfliteFfiWebOptions(

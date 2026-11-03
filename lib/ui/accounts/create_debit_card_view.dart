@@ -5,6 +5,7 @@ import '../../domain/models/debit_card.dart';
 
 import '../core/page_content.dart';
 import 'accounts_view_model.dart';
+import 'account_labels.dart';
 
 class CreateDebitCardView extends StatefulWidget {
   const CreateDebitCardView({super.key, required this.viewModel, this.card});
@@ -18,12 +19,14 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
   final _name = TextEditingController();
   final _lastFour = TextEditingController();
   int? _accountId;
+  int? _institutionId;
   @override
   void initState() {
     super.initState();
     _name.text = widget.card?.details.name ?? '';
     _lastFour.text = widget.card?.details.lastFour ?? '';
     _accountId = widget.card?.details.accountId;
+    _institutionId = widget.card?.details.financialInstitutionId;
   }
 
   @override
@@ -37,6 +40,7 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
     FocusScope.of(context).unfocus();
     final saved = await widget.viewModel.saveDebitCard(
       editingId: widget.card?.id,
+      financialInstitutionId: _institutionId,
       name: _name.text,
       accountId: _accountId,
       lastFour: _lastFour.text,
@@ -103,7 +107,7 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
                       DropdownMenuItem(
                         value: account.id,
                         child: Text(
-                          '${account.details.name} · ${account.details.openingBalance.currency.name.toUpperCase()}',
+                          '${account.identification} · ${account.details.openingBalance.currency.name.toUpperCase()}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -112,6 +116,37 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
                   onChanged: vm.isSaving
                       ? null
                       : (id) => setState(() => _accountId = id),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<int>(
+                  key: const ValueKey('debit-institution'),
+                  initialValue: _institutionId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Entidad financiera',
+                    border: const OutlineInputBorder(),
+                    errorText: vm.fieldErrors['financialInstitution'],
+                    errorMaxLines: 3,
+                    helperText: 'Administra las entidades desde Categorías.',
+                    helperMaxLines: 2,
+                  ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: null,
+                      child: Text('De la cuenta bancaria'),
+                    ),
+                    for (final institution in vm.financialInstitutions)
+                      DropdownMenuItem(
+                        value: institution.id,
+                        child: Text(
+                          institution.details.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: vm.isSaving
+                      ? null
+                      : (value) => setState(() => _institutionId = value),
                 ),
                 const SizedBox(height: 20),
                 TextField(

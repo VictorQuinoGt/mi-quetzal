@@ -45,13 +45,17 @@ void main() {
   });
 
   test(
-    'Solo crédito admite límite y últimos cuatro; valida moneda y rango',
+    'Solo crédito admite límite; crédito y banco admiten terminación válida',
     () {
       expect(
         () => details(limit: Money(100, Currency.gtq)),
         throwsArgumentError,
       );
-      expect(() => details(lastFour: '0042'), throwsArgumentError);
+      expect(details(lastFour: '0042').lastFour, '0042');
+      expect(
+        () => details(type: AccountType.cash, lastFour: '0042'),
+        throwsArgumentError,
+      );
       expect(
         () => details(
           type: AccountType.creditCard,

@@ -127,16 +127,18 @@ class _AppShellState extends State<AppShell> {
         builder: (context) => CategoriesView(viewModel: _movementsViewModel),
       ),
     );
+    if (mounted) await _accountsViewModel.load();
   }
 
   Future<void> _categorizeMovement(Movement movement) async {
     if (_movementsViewModel.status != MovementsStatus.ready) return;
+    final current = _movementsViewModel.movementById(movement.id) ?? movement;
     _movementsViewModel.startCreate();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => CategorizeMovementView(
           viewModel: _movementsViewModel,
-          movement: movement,
+          movement: current,
         ),
       ),
     );
@@ -211,6 +213,7 @@ class _AppShellState extends State<AppShell> {
       onLinkDebitCard: _linkDebitCard,
       onEdit: _createAccount,
       onEditDebit: _linkDebitCard,
+      onManageInstitutions: _manageCategories,
     ),
     AppSection.planning => const PlanningView(),
   };

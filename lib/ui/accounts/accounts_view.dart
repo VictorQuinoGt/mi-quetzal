@@ -15,12 +15,14 @@ class AccountsView extends StatelessWidget {
     required this.onLinkDebitCard,
     required this.onEdit,
     required this.onEditDebit,
+    required this.onManageInstitutions,
   });
   final AccountsViewModel viewModel;
   final VoidCallback onCreate;
   final VoidCallback onLinkDebitCard;
   final ValueChanged<Account> onEdit;
   final ValueChanged<DebitCard> onEditDebit;
+  final VoidCallback onManageInstitutions;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -69,6 +71,14 @@ class AccountsView extends StatelessWidget {
               const Text(
                 'Para vincular débito, primero crea una cuenta bancaria.',
               ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onManageInstitutions,
+                icon: const Icon(Icons.account_balance_outlined),
+                label: const Text('Entidades financieras'),
+              ),
+            ),
             const SizedBox(height: 20),
             if (viewModel.accounts.isEmpty)
               Card(
@@ -104,7 +114,14 @@ class AccountsView extends StatelessWidget {
             if (credits.isNotEmpty) ...[
               const _SectionTitle('Tarjetas de crédito'),
               for (final account in credits) ...[
-                _AccountCard(account: account, onEdit: () => onEdit(account)),
+                _AccountCard(
+                  account: account,
+                  institution: viewModel
+                      .institutionById(account.details.financialInstitutionId)
+                      ?.details
+                      .name,
+                  onEdit: () => onEdit(account),
+                ),
                 const SizedBox(height: 16),
               ],
             ],
@@ -114,6 +131,16 @@ class AccountsView extends StatelessWidget {
                 _DebitCard(
                   card: card,
                   bank: viewModel.accountById(card.details.accountId)!,
+                  institution: viewModel
+                      .institutionById(
+                        card.details.financialInstitutionId ??
+                            viewModel
+                                .accountById(card.details.accountId)!
+                                .details
+                                .financialInstitutionId,
+                      )
+                      ?.details
+                      .name,
                   onEdit: () => onEditDebit(card),
                 ),
                 const SizedBox(height: 16),
@@ -126,7 +153,14 @@ class AccountsView extends StatelessWidget {
                 child: Text('Aún no tienes cuentas bancarias.'),
               ),
             for (final account in viewModel.bankAccounts) ...[
-              _AccountCard(account: account, onEdit: () => onEdit(account)),
+              _AccountCard(
+                account: account,
+                institution: viewModel
+                    .institutionById(account.details.financialInstitutionId)
+                    ?.details
+                    .name,
+                onEdit: () => onEdit(account),
+              ),
               const SizedBox(height: 16),
             ],
             if (cash.isNotEmpty) ...[
@@ -136,10 +170,6 @@ class AccountsView extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
             ],
-            const SizedBox(height: 8),
-            const Text(
-              'Los saldos se calculan con la apertura y todos los movimientos registrados. El saldo mostrado en débito es el de su banco vinculado; no son fondos adicionales.',
-            ),
           ],
         ],
       );
@@ -158,8 +188,13 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.account, required this.onEdit});
+  const _AccountCard({
+    required this.account,
+    required this.onEdit,
+    this.institution,
+  });
   final Account account;
+  final String? institution;
   final VoidCallback onEdit;
   @override
   Widget build(BuildContext context) {
@@ -177,6 +212,10 @@ class _AccountCard extends StatelessWidget {
           : Icons.payments_outlined,
       onEdit: onEdit,
       children: [
+        if (details.type != AccountType.cash) ...[
+          Text('Entidad financiera: ${institution ?? 'Sin especificar'}'),
+          const SizedBox(height: 12),
+        ],
         if (details.type == AccountType.bank) ...[
           Text(
             details.bankAccountType?.label ?? 'Tipo bancario sin especificar',
@@ -185,10 +224,12 @@ class _AccountCard extends StatelessWidget {
         ],
         for (final balance in account.currentBalances) ...[
           _Balance(balance: balance, credit: credit),
-          const SizedBox(height: 8),
-          Text(
-            '${credit ? 'Deuda' : 'Saldo'} inicial: ${details.openingBalanceFor(balance.currency)!.formatted} · ${MaterialLocalizations.of(context).formatMediumDate(details.openingDate)}',
-          ),
+          if (details.type == AccountType.cash) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Saldo inicial: ${details.openingBalance.formatted} · ${MaterialLocalizations.of(context).formatMediumDate(details.openingDate)}',
+            ),
+          ],
           const SizedBox(height: 16),
         ],
         if (credit && details.secondaryOpeningBalance == null)
@@ -213,8 +254,10 @@ class _DebitCard extends StatelessWidget {
     required this.card,
     required this.bank,
     required this.onEdit,
+    this.institution,
   });
   final DebitCard card;
+  final String? institution;
   final Account bank;
   final VoidCallback onEdit;
   @override
@@ -226,15 +269,9 @@ class _DebitCard extends StatelessWidget {
         'Tarjeta de débito${card.details.lastFour == null ? '' : ' · •••• ${card.details.lastFour}'}',
     onEdit: onEdit,
     children: [
+      Text('Entidad financiera: ${institution ?? 'Sin especificar'}'),
+      const SizedBox(height: 12),
       _Balance(balance: bank.currentBalance, credit: false),
-      const SizedBox(height: 8),
-      Text(
-        'Saldo inicial: ${bank.details.openingBalance.formatted} · ${MaterialLocalizations.of(context).formatMediumDate(bank.details.openingDate)}',
-      ),
-      const Divider(height: 24),
-      Text('Vinculada a: ${bank.details.name}'),
-      const SizedBox(height: 8),
-      const Text('Comparte el saldo y la moneda de su cuenta bancaria.'),
     ],
   );
 }
@@ -250,11 +287,7 @@ class _Balance extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          inFavor
-              ? 'Saldo a favor'
-              : credit
-              ? 'Deuda actual'
-              : 'Saldo actual',
+          inFavor ? 'Saldo a favor' : 'Saldo actual',
           style: Theme.of(context).textTheme.labelLarge,
         ),
         const SizedBox(height: 4),

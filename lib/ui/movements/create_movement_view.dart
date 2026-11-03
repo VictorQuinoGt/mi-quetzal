@@ -4,6 +4,7 @@ import '../../domain/models/movement.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/money.dart';
 import '../core/page_content.dart';
+import '../accounts/account_labels.dart';
 import 'movement_labels.dart';
 import 'movements_view_model.dart';
 
@@ -148,7 +149,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                       DropdownMenuItem(
                         value: account.id,
                         child: Text(
-                          '${account.details.name} · ${account.details.openingBalances.map((m) => m.currency.code).join(' / ')}',
+                          '${account.identification} · ${account.details.openingBalances.map((m) => m.currency.code).join(' / ')}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -250,7 +251,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                         DropdownMenuItem(
                           value: account.id,
                           child: Text(
-                            account.details.name,
+                            account.identification,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

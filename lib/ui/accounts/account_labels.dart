@@ -14,3 +14,8 @@ extension BankAccountTypeLabel on BankAccountType {
     BankAccountType.savings => 'Ahorro',
   };
 }
+
+extension AccountIdentification on Account {
+  String get identification =>
+      '${details.name}${details.lastFour == null ? '' : ' · •••• ${details.lastFour}'}';
+}

@@ -26,6 +26,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   BankAccountType? _bankAccountType = BankAccountType.monetary;
   AccountType _type = AccountType.bank;
   Currency _currency = Currency.gtq;
+  int? _institutionId;
   late DateTime _date;
 
   @override
@@ -35,6 +36,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
     if (widget.account case final account?) {
       final details = account.details;
       _name.text = details.name;
+      _institutionId = details.financialInstitutionId;
       _type = details.type;
       _currency = details.openingBalance.currency;
       _balance.text = details.openingBalance.input;
@@ -66,6 +68,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
     FocusScope.of(context).unfocus();
     final saved = await widget.viewModel.saveAccount(
       editingId: widget.account?.id,
+      financialInstitutionId: _institutionId,
       name: _name.text,
       type: _type,
       currency: _currency,
@@ -202,6 +205,39 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                         ? null
                         : (value) => setState(() => _currency = value!),
                   ),
+                  if (_type != AccountType.cash) ...[
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<int>(
+                      initialValue: _institutionId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Entidad financiera',
+                        border: const OutlineInputBorder(),
+                        errorText: vm.fieldErrors['financialInstitution'],
+                        errorMaxLines: 3,
+                        helperText:
+                            'Administra las entidades desde Categorías.',
+                        helperMaxLines: 2,
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text('Sin especificar'),
+                        ),
+                        for (final institution in vm.financialInstitutions)
+                          DropdownMenuItem(
+                            value: institution.id,
+                            child: Text(
+                              institution.details.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: vm.isSaving
+                          ? null
+                          : (value) => setState(() => _institutionId = value),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   if (editing) ...[
                     const Text(
@@ -295,6 +331,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                         border: const OutlineInputBorder(),
                       ),
                     ),
+                  ],
+                  if (_type != AccountType.cash) ...[
                     const SizedBox(height: 20),
                     TextField(
                       controller: _lastFour,
@@ -305,7 +343,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                         LengthLimitingTextInputFormatter(4),
                       ],
                       decoration: InputDecoration(
-                        labelText: 'Últimos 4 dígitos (opcional)',
+                        labelText: _type == AccountType.bank
+                            ? 'Terminación (últimos 4 dígitos)'
+                            : 'Últimos 4 dígitos (opcional)',
                         helperText:
                             'Nunca ingreses el número completo, CVV o PIN.',
                         helperMaxLines: 2,

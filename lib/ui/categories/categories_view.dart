@@ -14,14 +14,18 @@ class CategoriesView extends StatefulWidget {
 
 class _CategoriesViewState extends State<CategoriesView> {
   final _name = TextEditingController();
+  final _institutionName = TextEditingController();
   CategoryKind _kind = CategoryKind.expense;
+  bool _institutionForm = false;
   @override
   void dispose() {
     _name.dispose();
+    _institutionName.dispose();
     super.dispose();
   }
 
   Future<void> _create() async {
+    setState(() => _institutionForm = false);
     FocusScope.of(context).unfocus();
     final saved = await widget.viewModel.createCategory(
       name: _name.text,
@@ -34,11 +38,26 @@ class _CategoriesViewState extends State<CategoriesView> {
     }
   }
 
+  Future<void> _createInstitution() async {
+    setState(() => _institutionForm = true);
+    FocusScope.of(context).unfocus();
+    final saved = await widget.viewModel.createFinancialInstitution(
+      _institutionName.text,
+    );
+    if (saved && mounted) {
+      _institutionName.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Entidad financiera creada')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.viewModel,
     builder: (context, _) {
       final vm = widget.viewModel;
+      final categoryError = _institutionForm ? null : vm.saveError;
       return PopScope(
         canPop: !vm.isSaving,
         child: Scaffold(
@@ -87,7 +106,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                       : (kind) => setState(() => _kind = kind!),
                 ),
                 const SizedBox(height: 20),
-                if (vm.saveError case final String error) ...[
+                if (categoryError case final String error) ...[
                   Semantics(
                     liveRegion: true,
                     child: Text(
@@ -134,6 +153,69 @@ class _CategoriesViewState extends State<CategoriesView> {
                             Text(category.details.kind.label),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                const SizedBox(height: 28),
+                Text(
+                  'Entidades financieras',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Crea el catálogo para identificar tus cuentas y tarjetas. Después selecciona la entidad al crear o editar una cuenta o tarjeta.',
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _institutionName,
+                  enabled: !vm.isSaving,
+                  maxLength: 60,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Nombre de entidad financiera',
+                    errorText: vm.fieldErrors['institutionName'],
+                    errorMaxLines: 3,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_institutionForm && vm.saveError != null) ...[
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      vm.saveError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                FilledButton.icon(
+                  onPressed: vm.isSaving ? null : _createInstitution,
+                  icon: vm.isSaving && _institutionForm
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.account_balance_outlined),
+                  label: Text(
+                    vm.isSaving && _institutionForm
+                        ? 'Guardando entidad…'
+                        : 'Agregar entidad financiera',
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (vm.financialInstitutions.isEmpty)
+                  const Text('Aún no hay entidades financieras.')
+                else
+                  for (final institution in vm.financialInstitutions) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(institution.details.name),
                       ),
                     ),
                     const SizedBox(height: 12),

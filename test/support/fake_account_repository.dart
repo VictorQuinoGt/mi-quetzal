@@ -4,10 +4,18 @@ import 'package:mi_quetzal/data/repositories/account_repository.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/debit_card.dart';
 import 'package:mi_quetzal/domain/rules/account_rules.dart';
+import 'package:mi_quetzal/domain/models/financial_institution.dart';
 
 class FakeAccountRepository implements AccountRepository {
   final List<Account> stored = [];
   final List<DebitCard> cards = [];
+  final List<FinancialInstitution> financialInstitutions = [];
+  @override
+  Future<List<FinancialInstitution>> getFinancialInstitutions() async {
+    if (failLoad) throw StateError('Fallo de lectura sintético');
+    return List.unmodifiable(financialInstitutions);
+  }
+
   int createCardCalls = 0;
 
   @override
@@ -22,6 +30,7 @@ class FakeAccountRepository implements AccountRepository {
     if (saveGate != null) await saveGate!.future;
     if (failSave) throw StateError('Fallo de escritura sintético');
     details.validateAccount(stored);
+    details.validateFinancialInstitution(financialInstitutions);
     final card = DebitCard(id: cards.length + 1, details: details);
     cards.add(card);
     return card;
@@ -45,6 +54,7 @@ class FakeAccountRepository implements AccountRepository {
     final index = stored.indexWhere((a) => a.id == id);
     if (index < 0) throw ArgumentError('La cuenta ya no existe.', 'name');
     AccountRules.validateUpdate(stored[index], details);
+    details.validateFinancialInstitution(financialInstitutions);
     final updated = Account(id: id, details: details);
     final next = [...stored]..[index] = updated;
     validateAccounts?.call(next);
@@ -65,6 +75,7 @@ class FakeAccountRepository implements AccountRepository {
       );
     }
     details.validateAccount(stored);
+    details.validateFinancialInstitution(financialInstitutions);
     validateDebitUpdate?.call(id, details);
     final updated = DebitCard(id: id, details: details);
     cards[index] = updated;
@@ -83,6 +94,7 @@ class FakeAccountRepository implements AccountRepository {
     if (saveGate != null) await saveGate!.future;
     if (failSave) throw StateError('Fallo de escritura sintético');
     final account = Account(id: stored.length + 1, details: details);
+    details.validateFinancialInstitution(financialInstitutions);
     stored.add(account);
     return account;
   }

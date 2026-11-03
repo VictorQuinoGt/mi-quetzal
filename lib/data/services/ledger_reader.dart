@@ -6,12 +6,17 @@ import '../../domain/models/debit_card.dart';
 import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/financial_institution.dart';
 
 Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
   final accountRows = await db.query('accounts', orderBy: 'id ASC');
   final cardRows = await db.query('debit_cards', orderBy: 'id ASC');
   final categoryRows = await db.query('categories', orderBy: 'id ASC');
   final movementRows = await db.query('movements', orderBy: 'id ASC');
+  final institutionRows = await db.query(
+    'financial_institutions',
+    orderBy: 'id ASC',
+  );
   final accounts = accountRows.map((row) {
     final currency = Currency.values.byName(row['currency'] as String);
     final limit = row['credit_limit_minor'] as int?;
@@ -26,7 +31,10 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
         openingBalance: Money(row['opening_minor'] as int, currency),
         openingDate: DateTime.parse(row['opening_date'] as String),
         creditLimit: limit == null ? null : Money(limit, currency),
-        lastFour: row['last_four'] as String?,
+        lastFour:
+            (row['type'] == 'bank' ? row['bank_last_four'] : row['last_four'])
+                as String?,
+        financialInstitutionId: row['financial_institution_id'] as int?,
         bankAccountType: row['bank_account_type'] == null
             ? null
             : BankAccountType.values.byName(row['bank_account_type'] as String),
@@ -68,6 +76,7 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
             name: row['name'] as String,
             accountId: row['account_id'] as int,
             lastFour: row['last_four'] as String?,
+            financialInstitutionId: row['financial_institution_id'] as int?,
           ),
         ),
       )
@@ -88,5 +97,12 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
     movements,
     debitCards: debitCards,
     categories: categories,
+    financialInstitutions: [
+      for (final row in institutionRows)
+        FinancialInstitution(
+          id: row['id'] as int,
+          details: FinancialInstitutionDetails(name: row['name'] as String),
+        ),
+    ],
   );
 }

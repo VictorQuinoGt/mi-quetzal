@@ -5,6 +5,7 @@ import '../../domain/models/account.dart';
 import '../../domain/models/debit_card.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/financial_institution.dart';
 
 enum AccountsStatus { loading, ready, error }
 
@@ -16,6 +17,16 @@ class AccountsViewModel extends ChangeNotifier {
   final DateTime Function() _now;
   List<Account> _accounts = const [];
   List<DebitCard> _debitCards = const [];
+  List<FinancialInstitution> _financialInstitutions = const [];
+  List<FinancialInstitution> get financialInstitutions =>
+      List.unmodifiable(_financialInstitutions);
+  FinancialInstitution? institutionById(int? id) {
+    for (final value in _financialInstitutions) {
+      if (value.id == id) return value;
+    }
+    return null;
+  }
+
   AccountsStatus _status = AccountsStatus.loading;
   bool _saving = false;
   bool _loading = false;
@@ -54,8 +65,10 @@ class AccountsViewModel extends ChangeNotifier {
     _emit();
     try {
       final cards = await _repository.getDebitCards();
+      final institutions = await _repository.getFinancialInstitutions();
       _accounts = await _repository.getAccounts();
       _debitCards = cards;
+      _financialInstitutions = institutions;
       _status = AccountsStatus.ready;
     } catch (_) {
       _status = AccountsStatus.error;
@@ -73,6 +86,7 @@ class AccountsViewModel extends ChangeNotifier {
 
   Future<bool> saveDebitCard({
     int? editingId,
+    int? financialInstitutionId,
     required String name,
     required int? accountId,
     String lastFour = '',
@@ -86,8 +100,10 @@ class AccountsViewModel extends ChangeNotifier {
         name: name,
         accountId: accountId ?? 0,
         lastFour: lastFour,
+        financialInstitutionId: financialInstitutionId,
       );
       details.validateAccount(accounts);
+      details.validateFinancialInstitution(financialInstitutions);
     } on DebitCardValidationException catch (error) {
       _fieldErrors = {error.field: error.message};
       _emit();
@@ -144,6 +160,7 @@ class AccountsViewModel extends ChangeNotifier {
 
   Future<bool> saveAccount({
     int? editingId,
+    int? financialInstitutionId,
     required String name,
     required AccountType type,
     required Currency currency,
@@ -200,11 +217,15 @@ class AccountsViewModel extends ChangeNotifier {
           openingBalance: balance,
           openingDate: openingDate,
           creditLimit: limit,
-          lastFour: type == AccountType.creditCard ? lastFour : null,
+          lastFour: type != AccountType.cash ? lastFour : null,
+          financialInstitutionId: type != AccountType.cash
+              ? financialInstitutionId
+              : null,
           bankAccountType: type == AccountType.bank ? bankAccountType : null,
           secondaryOpeningBalance: secondaryBalance,
           secondaryCreditLimit: secondaryLimit,
         );
+        details.validateFinancialInstitution(financialInstitutions);
       } on ArgumentError catch (error) {
         errors[error.name ?? 'name'] = error.message as String;
       }

@@ -79,7 +79,7 @@ void main() {
     await tester.enterText(field('Últimos 4 dígitos (opcional)'), '0042');
     await submit(tester);
 
-    expect(find.text('Deuda actual'), findsOneWidget);
+    expect(find.text('Saldo actual'), findsOneWidget);
     expect(find.text('USD 125.20'), findsOneWidget);
     expect(find.text('Límite de crédito: USD 1,000.00'), findsOneWidget);
     expect(find.textContaining('•••• 0042'), findsOneWidget);

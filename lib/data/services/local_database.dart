@@ -4,7 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 class LocalDatabase {
   LocalDatabase({required this.factory, this.path});
 
-  static const schemaVersion = 6;
+  static const schemaVersion = 7;
   final DatabaseFactory factory;
   final String? path;
   Future<Database>? _opening;
@@ -147,6 +147,20 @@ class LocalDatabase {
       );
       await db.execute(
         "ALTER TABLE accounts ADD COLUMN secondary_credit_limit_minor INTEGER CHECK(secondary_credit_limit_minor IS NULL OR (secondary_opening_minor IS NOT NULL AND secondary_credit_limit_minor BETWEEN 0 AND 9007199254740991))",
+      );
+    }
+    if (from < 7 && to >= 7) {
+      await db.execute(
+        'CREATE TABLE financial_institutions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 60))',
+      );
+      await db.execute(
+        'ALTER TABLE accounts ADD COLUMN financial_institution_id INTEGER REFERENCES financial_institutions(id) ON DELETE RESTRICT',
+      );
+      await db.execute(
+        'ALTER TABLE debit_cards ADD COLUMN financial_institution_id INTEGER REFERENCES financial_institutions(id) ON DELETE RESTRICT',
+      );
+      await db.execute(
+        "ALTER TABLE accounts ADD COLUMN bank_last_four TEXT CHECK(bank_last_four IS NULL OR (type = 'bank' AND length(bank_last_four) = 4 AND bank_last_four NOT GLOB '*[^0-9]*'))",
       );
     }
   }

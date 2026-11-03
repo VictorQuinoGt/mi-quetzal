@@ -1,3 +1,5 @@
+import '../support/movement_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -52,6 +54,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Movimientos'));
     await tester.pumpAndSettle();
+    await openMovementDetails(tester, 1);
     await press(tester, 'Devolver');
   }
 
@@ -73,8 +76,11 @@ void main() {
       expect(movements.stored, hasLength(2));
       expect(movements.stored.last.details.originalMovementId, 1);
       expect(movements.stored.first.details.amount.minorUnits, 500);
-      expect(find.text('Compra original: Compra sintética'), findsOneWidget);
       expect(find.text('Pendiente de devolver: GTQ 3.75'), findsOneWidget);
+      await closeMovementDetails(tester);
+      await openMovementDetails(tester, 2);
+      expect(find.text('Compra original: Compra sintética'), findsOneWidget);
+      await closeMovementDetails(tester);
       final typeFilter = find.byType(DropdownButtonFormField<MovementType>);
       await tester.ensureVisible(typeFilter);
       await tester.pumpAndSettle();
@@ -142,8 +148,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Movimientos'));
       await tester.pumpAndSettle();
-      expect(find.text('Compra devuelta por completo'), findsOneWidget);
       expect(find.text('Reembolso sintético'), findsOneWidget);
+      await openMovementDetails(tester, 1);
+      expect(find.text('Compra devuelta por completo'), findsOneWidget);
     },
   );
   testWidgets('Escritura bloquea doble envío y navegación hacia atrás', (

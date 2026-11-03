@@ -9,6 +9,7 @@ import '../../domain/models/movement_filter.dart';
 import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/financial_institution.dart';
 import '../../domain/rules/movement_rules.dart';
 
 enum MovementsStatus { loading, ready, error }
@@ -192,6 +193,32 @@ class MovementsViewModel extends ChangeNotifier {
 
   MovementsStatus get status => _status;
   List<Account> get accounts => _snapshot?.accounts ?? const [];
+  List<FinancialInstitution> get financialInstitutions =>
+      _snapshot?.financialInstitutions ?? const [];
+  FinancialInstitution? institutionById(int? id) {
+    for (final value in financialInstitutions) {
+      if (value.id == id) return value;
+    }
+    return null;
+  }
+
+  Future<bool> createFinancialInstitution(String name) async {
+    if (_saving || _status != MovementsStatus.ready) return false;
+    FinancialInstitutionDetails details;
+    try {
+      details = FinancialInstitutionDetails(name: name);
+    } on FinancialInstitutionValidationException catch (error) {
+      _fieldErrors = {'institutionName': error.message};
+      _saveError = null;
+      _emit();
+      return false;
+    }
+    return _saveChange(
+      () => _repository.createFinancialInstitution(details),
+      'No se pudo crear la entidad financiera. Conservamos el nombre; intenta de nuevo.',
+    );
+  }
+
   List<Movement> get movements => _snapshot?.movements ?? const [];
   List<Category> get categories => _snapshot?.categories ?? const [];
   List<Category> categoriesFor(MovementType type) =>

@@ -1,3 +1,5 @@
+import '../support/movement_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -132,6 +134,7 @@ void main() {
       await categories();
       await record(MovementType.expense, 2, 500, 'Compra anterior sintética');
       await boot(tester);
+      await openMovementDetails(tester, 1);
       await press(tester, 'Categorizar');
       await choose(
         tester,
@@ -142,6 +145,7 @@ void main() {
       expect(find.text('Categoría: Alimentos sintéticos'), findsOneWidget);
       expect(movements.stored.single.id, 1);
       expect(movements.snapshot.accounts[1].currentBalance.minorUnits, 500);
+      await openMovementDetails(tester, 1);
       await press(tester, 'Categorizar');
       await choose(
         tester,
@@ -182,7 +186,9 @@ void main() {
     await tester.ensureVisible(field('Importe'));
     await tester.enterText(field('Importe'), '2.50');
     await press(tester, 'Guardar movimiento');
+    await openMovementDetails(tester, 1);
     expect(find.text('Categoría: Alimentos sintéticos'), findsOneWidget);
+    await closeMovementDetails(tester);
     await tester.tap(find.text('Inicio'));
     await tester.pumpAndSettle();
     expect(find.text('Gastos del mes'), findsOneWidget);
@@ -196,6 +202,7 @@ void main() {
     await categories();
     await record(MovementType.expense, 1, 125, 'Compra sintética');
     await boot(tester);
+    await openMovementDetails(tester, 1);
     await press(tester, 'Categorizar');
     await choose(
       tester,
@@ -218,6 +225,7 @@ void main() {
     await categories();
     await record(MovementType.expense, 1, 125, 'Compra sintética');
     await boot(tester);
+    await openMovementDetails(tester, 1);
     await press(tester, 'Categorizar');
     await choose(
       tester,

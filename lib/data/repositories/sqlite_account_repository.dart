@@ -1,6 +1,7 @@
 import '../../domain/models/account.dart';
 import '../../domain/models/debit_card.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/financial_institution.dart';
 import '../../domain/rules/account_rules.dart';
 import '../services/ledger_reader.dart';
 import '../services/local_database.dart';
@@ -11,6 +12,13 @@ class SqliteAccountRepository implements AccountRepository {
     : _now = now ?? DateTime.now;
   final LocalDatabase _database;
   final DateTime Function() _now;
+  @override
+  Future<List<FinancialInstitution>> getFinancialInstitutions() async {
+    final db = await _database.database;
+    return db.transaction(
+      (tx) async => (await readLedger(tx)).financialInstitutions,
+    );
+  }
 
   @override
   Future<List<DebitCard>> getDebitCards() async {
@@ -24,11 +32,14 @@ class SqliteAccountRepository implements AccountRepository {
   Future<DebitCard> createDebitCard(DebitCardDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
-      details.validateAccount((await readLedger(transaction)).accounts);
+      final snapshot = await readLedger(transaction);
+      details.validateAccount(snapshot.accounts);
+      details.validateFinancialInstitution(snapshot.financialInstitutions);
       final id = await transaction.insert('debit_cards', {
         'name': details.name,
         'account_id': details.accountId,
         'last_four': details.lastFour,
+        'financial_institution_id': details.financialInstitutionId,
       });
       return DebitCard(id: id, details: details);
     });
@@ -46,6 +57,9 @@ class SqliteAccountRepository implements AccountRepository {
   Future<Account> createAccount(AccountDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
+      details.validateFinancialInstitution(
+        (await readLedger(transaction)).financialInstitutions,
+      );
       final id = await transaction.insert('accounts', _values(details));
       return Account(id: id, details: details);
     });
@@ -56,6 +70,7 @@ class SqliteAccountRepository implements AccountRepository {
     final db = await _database.database;
     return db.transaction((transaction) async {
       final before = await readLedger(transaction);
+      details.validateFinancialInstitution(before.financialInstitutions);
       final matches = before.accounts.where((a) => a.id == id);
       if (matches.isEmpty) {
         throw ArgumentError('La cuenta ya no existe.', 'name');
@@ -102,6 +117,7 @@ class SqliteAccountRepository implements AccountRepository {
         );
       }
       details.validateAccount(snapshot.accounts);
+      details.validateFinancialInstitution(snapshot.financialInstitutions);
       AccountRules.validateDebitUpdate(id, details, snapshot.movements);
       await transaction.update(
         'debit_cards',
@@ -109,6 +125,7 @@ class SqliteAccountRepository implements AccountRepository {
           'name': details.name,
           'account_id': details.accountId,
           'last_four': details.lastFour,
+          'financial_institution_id': details.financialInstitutionId,
         },
         where: 'id = ?',
         whereArgs: [id],
@@ -125,7 +142,13 @@ class SqliteAccountRepository implements AccountRepository {
     'opening_minor': details.openingBalance.minorUnits,
     'opening_date': details.openingDate.toIso8601String().substring(0, 10),
     'credit_limit_minor': details.creditLimit?.minorUnits,
-    'last_four': details.lastFour,
+    'last_four': details.type == AccountType.creditCard
+        ? details.lastFour
+        : null,
+    'bank_last_four': details.type == AccountType.bank
+        ? details.lastFour
+        : null,
+    'financial_institution_id': details.financialInstitutionId,
     'bank_account_type': details.bankAccountType?.name,
     'secondary_opening_minor': details.secondaryOpeningBalance?.minorUnits,
     'secondary_credit_limit_minor': details.secondaryCreditLimit?.minorUnits,

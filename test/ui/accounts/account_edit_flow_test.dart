@@ -1,3 +1,5 @@
+import '../../support/movement_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -188,6 +190,7 @@ void main() {
       await tester.enterText(field('Importe'), '1.25');
       await press(tester, find.text('Guardar movimiento'));
       expect(movements.stored.single.details.amount.currency, Currency.usd);
+      await openMovementDetails(tester, 1);
       await press(tester, find.text('Devolver'));
       await tester.enterText(
         field('Descripción de la devolución'),
@@ -196,6 +199,7 @@ void main() {
       await tester.enterText(field('Importe a devolver'), '0.25');
       await press(tester, find.text('Guardar devolución'));
       expect(movements.stored.last.details.amount.currency, Currency.usd);
+      await closeMovementDetails(tester);
       await tester.tap(find.text('Cuentas'));
       await tester.pumpAndSettle();
       expect(find.text('GTQ 5.00'), findsOneWidget);

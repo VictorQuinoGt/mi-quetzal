@@ -83,11 +83,11 @@ void main() {
     },
   );
 
-  test('No aplica datos ocultos de tarjeta a una cuenta bancaria', () async {
+  test('Banco conserva terminación y no usa un límite de crédito', () async {
     await vm.load();
     expect(await save(limit: '100', digits: '0042'), isTrue);
     expect(vm.accounts.single.details.creditLimit, isNull);
-    expect(vm.accounts.single.details.lastFour, isNull);
+    expect(vm.accounts.single.details.lastFour, '0042');
   });
 
   test('Conserva listado al fallar un guardado y permite reintentar', () async {

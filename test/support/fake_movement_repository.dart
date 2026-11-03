@@ -6,6 +6,7 @@ import 'package:mi_quetzal/domain/models/category.dart';
 import 'package:mi_quetzal/domain/models/movement.dart';
 import 'package:mi_quetzal/domain/rules/movement_rules.dart';
 import 'package:mi_quetzal/domain/rules/account_rules.dart';
+import 'package:mi_quetzal/domain/models/financial_institution.dart';
 
 import 'fake_account_repository.dart';
 
@@ -26,6 +27,7 @@ class FakeMovementRepository implements MovementRepository {
         stored,
         debitCards: accounts.cards,
         categories: categories,
+        financialInstitutions: accounts.financialInstitutions,
       );
     };
     accounts.validateDebitUpdate = (id, details) =>
@@ -35,6 +37,23 @@ class FakeMovementRepository implements MovementRepository {
   final List<Movement> stored = [];
   final List<Category> categories = [];
   int createCategoryCalls = 0;
+  int createInstitutionCalls = 0;
+  @override
+  Future<LedgerSnapshot> createFinancialInstitution(
+    FinancialInstitutionDetails details,
+  ) async {
+    createInstitutionCalls++;
+    if (saveGate != null) await saveGate!.future;
+    if (failSave) throw StateError('Fallo de escritura sintético');
+    accounts.financialInstitutions.add(
+      FinancialInstitution(
+        id: accounts.financialInstitutions.length + 1,
+        details: details,
+      ),
+    );
+    return snapshot;
+  }
+
   int assignCategoryCalls = 0;
   bool failLoad = false;
   bool failSave = false;
@@ -45,6 +64,7 @@ class FakeMovementRepository implements MovementRepository {
     stored,
     debitCards: accounts.cards,
     categories: categories,
+    financialInstitutions: accounts.financialInstitutions,
   );
 
   @override
@@ -72,6 +92,7 @@ class FakeMovementRepository implements MovementRepository {
       [...stored, movement],
       debitCards: accounts.cards,
       categories: categories,
+      financialInstitutions: accounts.financialInstitutions,
     );
     stored.add(movement);
     return next;
@@ -109,6 +130,7 @@ class FakeMovementRepository implements MovementRepository {
       values,
       debitCards: accounts.cards,
       categories: categories,
+      financialInstitutions: accounts.financialInstitutions,
     );
     stored[index] = updated;
     return next;

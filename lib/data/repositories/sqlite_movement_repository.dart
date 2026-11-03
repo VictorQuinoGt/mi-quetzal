@@ -1,6 +1,7 @@
 import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/movement.dart';
+import '../../domain/models/financial_institution.dart';
 import '../../domain/rules/movement_rules.dart';
 import '../services/ledger_reader.dart';
 import '../services/local_database.dart';
@@ -11,6 +12,16 @@ class SqliteMovementRepository implements MovementRepository {
     : _now = now ?? DateTime.now;
   final LocalDatabase _database;
   final DateTime Function() _now;
+  @override
+  Future<LedgerSnapshot> createFinancialInstitution(
+    FinancialInstitutionDetails details,
+  ) async {
+    final db = await _database.database;
+    return db.transaction((tx) async {
+      await tx.insert('financial_institutions', {'name': details.name});
+      return readLedger(tx);
+    });
+  }
 
   @override
   Future<LedgerSnapshot> getSnapshot() async {

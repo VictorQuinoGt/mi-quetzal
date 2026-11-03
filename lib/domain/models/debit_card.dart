@@ -1,4 +1,5 @@
 import 'account.dart';
+import 'financial_institution.dart';
 
 final class DebitCardValidationException implements Exception {
   const DebitCardValidationException(this.field, this.message);
@@ -14,6 +15,7 @@ final class DebitCardDetails {
     required String name,
     required int accountId,
     String? lastFour,
+    int? financialInstitutionId,
   }) {
     final alias = name.trim();
     final digits = lastFour?.trim();
@@ -41,16 +43,28 @@ final class DebitCardDetails {
       name: alias,
       accountId: accountId,
       lastFour: digits == null || digits.isEmpty ? null : digits,
+      financialInstitutionId: financialInstitutionId,
     );
   }
   const DebitCardDetails._({
     required this.name,
     required this.accountId,
     this.lastFour,
+    this.financialInstitutionId,
   });
   final String name;
   final int accountId;
   final String? lastFour;
+  final int? financialInstitutionId;
+  void validateFinancialInstitution(List<FinancialInstitution> institutions) {
+    if (financialInstitutionId != null &&
+        !institutions.any((i) => i.id == financialInstitutionId)) {
+      throw const DebitCardValidationException(
+        'financialInstitution',
+        'Selecciona una entidad financiera existente.',
+      );
+    }
+  }
 
   void validateAccount(List<Account> accounts) {
     if (!accounts.any(

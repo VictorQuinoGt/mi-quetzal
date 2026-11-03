@@ -3,6 +3,7 @@ import 'account.dart';
 import 'category.dart';
 import 'debit_card.dart';
 import 'movement.dart';
+import 'financial_institution.dart';
 
 final class LedgerSnapshot {
   LedgerSnapshot.calculate(
@@ -10,9 +11,14 @@ final class LedgerSnapshot {
     List<Movement> movements, {
     List<DebitCard> debitCards = const [],
     List<Category> categories = const [],
+    List<FinancialInstitution> financialInstitutions = const [],
   }) {
+    for (final account in accounts) {
+      account.details.validateFinancialInstitution(financialInstitutions);
+    }
     for (final card in debitCards) {
       card.details.validateAccount(accounts);
+      card.details.validateFinancialInstitution(financialInstitutions);
     }
     final balances = {
       for (final account in accounts)
@@ -74,10 +80,12 @@ final class LedgerSnapshot {
     this.movements = List.unmodifiable(chronological.reversed);
     this.debitCards = List.unmodifiable(debitCards);
     this.categories = List.unmodifiable(categories);
+    this.financialInstitutions = List.unmodifiable(financialInstitutions);
   }
 
   late final List<Account> accounts;
   late final List<Movement> movements;
   late final List<DebitCard> debitCards;
   late final List<Category> categories;
+  late final List<FinancialInstitution> financialInstitutions;
 }

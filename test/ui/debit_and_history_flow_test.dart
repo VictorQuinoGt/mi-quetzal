@@ -1,3 +1,5 @@
+import '../support/movement_details.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -75,7 +77,7 @@ void main() {
     await tester.enterText(field('Alias de tarjeta'), 'Débito de prueba');
     await choose(
       tester,
-      find.byType(DropdownButtonFormField<int>),
+      find.byType(DropdownButtonFormField<int>).first,
       'Banco · GTQ',
     );
     await tester.ensureVisible(field('Últimos 4 dígitos (opcional)'));
@@ -123,7 +125,7 @@ void main() {
       await press(tester, 'Vincular tarjeta');
       expect(find.text('Tarjeta de débito vinculada'), findsOneWidget);
       expect(find.text('Débito de prueba'), findsOneWidget);
-      expect(find.text('Vinculada a: Banco'), findsOneWidget);
+      expect(find.text('Entidad financiera: Sin especificar'), findsWidgets);
       expect(find.text('GTQ 1,000.00'), findsNWidgets(2));
       expect(accounts.stored, hasLength(4));
       await tester.pumpWidget(const SizedBox());
@@ -226,7 +228,9 @@ void main() {
     await tester.ensureVisible(field('Importe'));
     await tester.enterText(field('Importe'), '12.50');
     await press(tester, 'Guardar movimiento');
+    await openMovementDetails(tester, 1);
     expect(find.text('Débito: Débito de prueba · •••• 0042'), findsOneWidget);
+    await closeMovementDetails(tester);
     expect(movements.stored.single.details.accountId, 1);
     expect(movements.stored.single.details.debitCardId, 1);
     await tester.tap(find.text('Cuentas'));
@@ -243,7 +247,7 @@ void main() {
       expect(find.text('3 de 3 movimientos'), findsOneWidget);
       await choose(
         tester,
-        find.byType(DropdownButtonFormField<int>),
+        find.byType(DropdownButtonFormField<int>).first,
         'Efectivo · GTQ',
       );
       expect(find.text('1 de 3 movimientos'), findsOneWidget);

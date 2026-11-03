@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/movement.dart';
 import '../core/page_content.dart';
-import 'movement_labels.dart';
+import 'movement_detail_view.dart';
 import 'movement_filters.dart';
 import 'movements_view_model.dart';
 
@@ -110,14 +110,31 @@ class MovementsView extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final movement in viewModel.visibleMovements) ...[
-              _MovementCard(
-                movement: movement,
-                viewModel: viewModel,
-                onCategorize: () => onCategorize(movement),
-                onRefund: () => onRefund(movement),
+            if (viewModel.visibleMovements.isNotEmpty) ...[
+              Text('Estado de cuenta', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    for (final movement in viewModel.visibleMovements) ...[
+                      _StatementRow(
+                        movement: movement,
+                        onDetails: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (context) => MovementDetailView(
+                              movement: movement,
+                              viewModel: viewModel,
+                              onCategorize: () => onCategorize(movement),
+                              onRefund: () => onRefund(movement),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
             ],
           ],
         ],
@@ -126,91 +143,85 @@ class MovementsView extends StatelessWidget {
   );
 }
 
-class _MovementCard extends StatelessWidget {
-  const _MovementCard({
-    required this.movement,
-    required this.viewModel,
-    required this.onCategorize,
-    required this.onRefund,
-  });
+class _StatementRow extends StatelessWidget {
+  const _StatementRow({required this.movement, required this.onDetails});
   final Movement movement;
-  final MovementsViewModel viewModel;
-  final VoidCallback onCategorize;
-  final VoidCallback onRefund;
-
+  final VoidCallback onDetails;
   @override
   Widget build(BuildContext context) {
     final details = movement.details;
-    final origin = viewModel.accountById(details.accountId)!;
-    final other = viewModel.accountById(details.counterpartyAccountId);
-    final debitCard = viewModel.debitCardById(details.debitCardId);
+    final date = MaterialLocalizations.of(context)
+        .formatMediumDate(details.date);
     final theme = Theme.of(context);
-    return Card(
+    final button = IconButton(
+      key: ValueKey('movement-detail-${movement.id}'),
+      onPressed: onDetails,
+      tooltip: 'Ver detalle: ${details.description}',
+      icon: const Icon(Icons.help_outline),
+    );
+    return InkWell(
+      key: ValueKey('movement-${movement.id}'),
+      onTap: onDetails,
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(details.type.label, style: theme.textTheme.labelLarge),
-            const SizedBox(height: 8),
-            Text(details.description, style: theme.textTheme.titleMedium),
-            if (details.isExpense || details.isIncome || details.isRefund) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Categoría: ${viewModel.categoryById(viewModel.categoryIdFor(movement))?.details.name ?? 'Sin categoría'}',
-              ),
-              if (!details.isRefund)
-                TextButton.icon(
-                  onPressed: onCategorize,
-                  icon: const Icon(Icons.label_outline),
-                  label: const Text('Categorizar'),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 560) {
+              return Row(
+                children: [
+                  SizedBox(width: 110, child: Text(date)),
+                  Expanded(
+                    child: Text(
+                      details.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 180,
+                    child: Text(
+                      details.amount.formatted,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                  button,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        details.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                    button,
+                  ],
                 ),
-            ],
-            if (details.isExpense) ...[
-              Text(
-                'Pendiente de devolver: ${viewModel.remainingRefund(movement).formatted}',
-              ),
-              if (viewModel.remainingRefund(movement).minorUnits > 0)
-                TextButton.icon(
-                  onPressed: onRefund,
-                  icon: const Icon(Icons.undo),
-                  label: const Text('Devolver'),
-                )
-              else
-                const Text('Compra devuelta por completo'),
-            ],
-            if (details.isRefund) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Compra original: ${viewModel.movementById(details.originalMovementId)!.details.description}',
-              ),
-              const Text('Revierte gasto · No suma ingresos'),
-            ],
-            const SizedBox(height: 12),
-            Text(
-              details.amount.formatted,
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${origin.details.name}${other == null ? '' : ' → ${other.details.name}'}',
-            ),
-            const SizedBox(height: 4),
-            if (debitCard != null) ...[
-              Text(
-                'Débito: ${debitCard.details.name}${debitCard.details.lastFour == null ? '' : ' · •••• ${debitCard.details.lastFour}'}',
-              ),
-              const SizedBox(height: 4),
-            ],
-            Text(
-              MaterialLocalizations.of(context).formatMediumDate(details.date),
-            ),
-            if (details.type == MovementType.transfer ||
-                details.type == MovementType.creditPayment) ...[
-              const SizedBox(height: 8),
-              const Text('Transferencia · No suma ingresos ni gastos'),
-            ],
-          ],
+                const SizedBox(height: 4),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    Text(date),
+                    Text(
+                      details.amount.formatted,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
