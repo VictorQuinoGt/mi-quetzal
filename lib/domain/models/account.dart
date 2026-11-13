@@ -175,6 +175,9 @@ final class AccountDetails {
 }
 
 final class Account {
+  /// Tipo de cambio fijo para mostrar el equivalente del disponible GTQ en USD.
+  static const standardGtqMinorUnitsPerUsd = 780;
+
   Account({
     required this.id,
     required this.details,
@@ -225,6 +228,20 @@ final class Account {
     return Money.fromBigInt(
       remaining < BigInt.zero ? BigInt.zero : remaining,
       currency,
+    );
+  }
+
+  /// Equivalente a Q 7.80 por US$ 1, redondeado al centavo más cercano.
+  /// Conserva el disponible GTQ como fuente; no cambia deudas ni movimientos.
+  Money? get availableCreditUsdEquivalent {
+    final available = availableCreditFor(Currency.gtq);
+    if (available == null) return null;
+    final rate = BigInt.from(standardGtqMinorUnitsPerUsd);
+    return Money.fromBigInt(
+      (BigInt.from(available.minorUnits) * BigInt.from(100) +
+              rate ~/ BigInt.two) ~/
+          rate,
+      Currency.usd,
     );
   }
 

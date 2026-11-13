@@ -29,6 +29,9 @@ class AccountsViewModel extends ChangeNotifier {
 
   AccountsStatus _status = AccountsStatus.loading;
   bool _saving = false;
+  bool _savingInstitution = false;
+  String? _institutionNameError;
+  String? _institutionSaveError;
   bool _loading = false;
   bool _disposed = false;
   Map<String, String> _fieldErrors = const {};
@@ -46,7 +49,10 @@ class AccountsViewModel extends ChangeNotifier {
   }
 
   AccountsStatus get status => _status;
-  bool get isSaving => _saving;
+  bool get isSaving => _saving || _savingInstitution;
+  bool get isSavingInstitution => _savingInstitution;
+  String? get institutionNameError => _institutionNameError;
+  String? get institutionSaveError => _institutionSaveError;
   Map<String, String> get fieldErrors => Map.unmodifiable(_fieldErrors);
   String? get saveError => _saveError;
   DateTime get today {
@@ -58,8 +64,42 @@ class AccountsViewModel extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void startCreateInstitution() {
+    if (isSaving) return;
+    _institutionNameError = null;
+    _institutionSaveError = null;
+  }
+
+  Future<FinancialInstitution?> createFinancialInstitution(String name) async {
+    if (isSaving || _status != AccountsStatus.ready) return null;
+    _institutionNameError = null;
+    _institutionSaveError = null;
+    FinancialInstitutionDetails details;
+    try {
+      details = FinancialInstitutionDetails(name: name);
+    } on FinancialInstitutionValidationException catch (error) {
+      _institutionNameError = error.message;
+      _emit();
+      return null;
+    }
+    _savingInstitution = true;
+    _emit();
+    try {
+      final institution = await _repository.createFinancialInstitution(details);
+      _financialInstitutions = [..._financialInstitutions, institution];
+      return institution;
+    } catch (_) {
+      _institutionSaveError =
+          'No se pudo crear la entidad financiera. Intenta de nuevo.';
+      return null;
+    } finally {
+      _savingInstitution = false;
+      _emit();
+    }
+  }
+
   Future<void> load() async {
-    if (_loading || _saving) return;
+    if (_loading || isSaving) return;
     _loading = true;
     _status = AccountsStatus.loading;
     _emit();
@@ -91,7 +131,7 @@ class AccountsViewModel extends ChangeNotifier {
     required int? accountId,
     String lastFour = '',
   }) async {
-    if (_saving || _status != AccountsStatus.ready) return false;
+    if (isSaving || _status != AccountsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     DebitCardDetails details;
@@ -135,7 +175,7 @@ class AccountsViewModel extends ChangeNotifier {
   }
 
   void startCreate() {
-    if (_saving) return;
+    if (isSaving) return;
     _fieldErrors = const {};
     _saveError = null;
   }
@@ -174,7 +214,7 @@ class AccountsViewModel extends ChangeNotifier {
     String secondaryOpeningBalance = '',
     String secondaryCreditLimit = '',
   }) async {
-    if (_saving || _status != AccountsStatus.ready) return false;
+    if (isSaving || _status != AccountsStatus.ready) return false;
     final errors = <String, String>{};
     Money? parse(String value, String field, [Currency? inCurrency]) {
       try {

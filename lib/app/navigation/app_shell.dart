@@ -178,6 +178,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _manageCategories() async {
     if (_movementsViewModel.status != MovementsStatus.ready) return;
+    await _movementsViewModel.load();
+    if (!mounted || _movementsViewModel.status != MovementsStatus.ready) return;
     _movementsViewModel.startCreate();
     await Navigator.of(context).push<void>(
       MaterialPageRoute(

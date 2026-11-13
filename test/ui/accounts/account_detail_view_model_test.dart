@@ -54,6 +54,49 @@ void main() {
     await vm.load();
   });
   tearDown(() => vm.dispose());
+  test(
+    'Disponible USD usa equivalencia GTQ y se actualiza al recargar',
+    () async {
+      await accounts.createAccount(
+        AccountDetails(
+          name: 'Crédito de conversión',
+          type: AccountType.creditCard,
+          openingBalance: Money(150000, Currency.gtq),
+          secondaryOpeningBalance: Money(0, Currency.usd),
+          creditLimit: Money(1100000, Currency.gtq),
+          secondaryCreditLimit: Money(50000, Currency.usd),
+          openingDate: DateTime(2025, 12, 1),
+        ),
+      );
+      final creditVm = AccountDetailViewModel(
+        repository,
+        target: const AccountDetailTarget.account(3),
+        now: () => now,
+      );
+      addTearDown(creditVm.dispose);
+      await creditVm.load();
+      expect(creditVm.availableCredits, [
+        Money(950000, Currency.gtq),
+        Money(121795, Currency.usd),
+      ]);
+      expect(creditVm.availableLabels, ['Q 9,500.00', r'US$ 1,217.95']);
+      expect(
+        creditVm.availableConversionNote,
+        r'Equivalente USD a Q 7.80 por US$ 1.',
+      );
+      await repository.createMovement(
+        MovementDetails(
+          type: MovementType.expense,
+          accountId: 3,
+          amount: Money(170000, Currency.gtq),
+          date: now,
+          description: 'Compra sintética',
+        ),
+      );
+      await creditVm.load();
+      expect(creditVm.availableLabels, ['Q 7,800.00', r'US$ 1,000.00']);
+    },
+  );
   test('Contexto fijo, mes actual y enero a diciembre del año anterior', () {
     expect(vm.account!.id, 1);
     expect(vm.period, AccountPeriod.currentMonth);

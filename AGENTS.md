@@ -55,6 +55,7 @@
 - Conservar `pubspec.lock`, `.metadata`, configuración compartida y documentación en Git. Excluir `.env`, archivos locales y claves de firma.
 - Revisar diff y archivos antes de preparar un commit; no incluir datos privados mediante un `git add .` indiscriminado.
 - No hacer push forzado, borrar archivos del usuario ni cambiar remotos. Crear commits o publicar solo cuando la tarea lo autorice.
+- El usuario autoriza crear commits locales directamente al terminar cada conjunto coherente de cambios solicitado, después de verificarlo. Revisar y seleccionar los archivos concretos; no incluir cambios ajenos a ese conjunto. Esta autorización no incluye push.
 - Añadir dependencias cuando una función las necesite, comprobar compatibilidad y documentar su propósito. No actualizar Flutter/Gradle/Kotlin en tareas ajenas.
 
 ## Interfaz
@@ -71,6 +72,6 @@
   - `flutter analyze`
   - `flutter test`
 - Probar las reglas financieras, repositorios, importación y ViewModels cuando cambie su comportamiento. Cubrir crédito/débito, pagos sin doble gasto, monedas, duplicados legítimos y fallos según el alcance.
-- Ejecutar `flutter build apk --debug` cuando cambien plugins o integración Android. No exigir firma privada ni build release para documentación.
+- Por preferencia expresa del usuario, generar `flutter build apk --debug` después de cada conjunto coherente de cambios solicitado, antes de su commit local, y entregar el enlace de la APK actualizada. No exigir firma privada ni build release para documentación.
 - No silenciar lints ni borrar pruebas para obtener resultados verdes. Adaptar la prueba del contador al sustituir la demo.
-- Al finalizar, resumir cambios, verificaciones realmente ejecutadas, limitaciones y un nombre de commit sugerido. Distinguir implementación de propuesta.
+- Al finalizar, resumir cambios, verificaciones realmente ejecutadas, limitaciones, hash del commit creado y enlace de la APK generada. Si algún paso falla, indicar su estado real. Distinguir implementación de propuesta.

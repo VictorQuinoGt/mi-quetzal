@@ -14,6 +14,19 @@ class SqliteAccountRepository implements AccountRepository {
   final LocalDatabase _database;
   final DateTime Function() _now;
   @override
+  Future<FinancialInstitution> createFinancialInstitution(
+    FinancialInstitutionDetails details,
+  ) async {
+    final db = await _database.database;
+    return db.transaction((tx) async {
+      final id = await tx.insert('financial_institutions', {
+        'name': details.name,
+      });
+      return FinancialInstitution(id: id, details: details);
+    });
+  }
+
+  @override
   Future<List<FinancialInstitution>> getFinancialInstitutions() async {
     final db = await _database.database;
     return db.transaction(

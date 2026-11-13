@@ -62,7 +62,7 @@ void main() {
     expect(find.text('GTQ 1,234.56'), findsOneWidget);
   });
 
-  testWidgets('Distingue deuda y límite en una tarjeta USD', (tester) async {
+  testWidgets('Tarjeta principal USD registra solo límite GTQ', (tester) async {
     final repository = FakeAccountRepository();
     await openForm(tester, repository);
     await tester.enterText(field('Alias'), 'Crédito de prueba');
@@ -74,7 +74,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(r'USD · Dólares').last);
     await tester.pumpAndSettle();
-    await tester.enterText(field('Deuda inicial'), '125.20');
+    await tester.enterText(field('Deuda inicial USD'), '125.20');
+    await tester.enterText(field('Deuda inicial QTZ'), '20');
     await tester.ensureVisible(field('Límite de crédito (opcional)'));
     await tester.enterText(field('Límite de crédito (opcional)'), '1000');
     await tester.ensureVisible(field('Últimos 4 dígitos (opcional)'));
@@ -84,7 +85,13 @@ void main() {
     await openAccountDetails(tester, 1);
     expect(find.text('Deuda actual'), findsOneWidget);
     expect(find.text(r'US$ 125.20'), findsOneWidget);
-    expect(find.text(r'US$ 1,000.00'), findsOneWidget);
+    expect(find.text('Q 1,000.00'), findsOneWidget);
+    expect(find.text(r'US$ 1,000.00'), findsNothing);
+    expect(repository.stored.single.details.creditLimit, isNull);
+    expect(
+      repository.stored.single.details.secondaryCreditLimit,
+      Money(100000, Currency.gtq),
+    );
     expect(find.textContaining('•••• 0042'), findsOneWidget);
     expect(
       repository.stored.single.details.openingBalance.currency,

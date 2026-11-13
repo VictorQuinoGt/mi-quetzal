@@ -87,10 +87,17 @@ class CreditSummary extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 16),
-            pair(
-              cell('Límite', viewModel.limitLabels),
+            if (viewModel.limitLabels.isNotEmpty)
+              pair(
+                cell('Límite', viewModel.limitLabels),
+                cell('Disponible', viewModel.availableLabels),
+              )
+            else
               cell('Disponible', viewModel.availableLabels),
-            ),
+            if (viewModel.availableConversionNote case final String note) ...[
+              const SizedBox(height: 8),
+              Text(note, style: Theme.of(context).textTheme.bodySmall),
+            ],
             if (account.reservedCredit.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final amount in account.reservedCredit.values)
@@ -107,7 +114,7 @@ class CreditSummary extends StatelessWidget {
                     title: const Text('Deuda, disponible y período'),
                     content: const SingleChildScrollView(
                       child: Text(
-                        'La deuda incluye cargos ya registrados. El calendario de cuotas futuras es un compromiso aparte. Disponible resta deuda ordinaria y reservas de capital conocidas, por moneda. Si falta desglose o no se conoce la asignación de un pago entre líneas, se omite ese disponible. Los movimientos del período corresponden a meses calendario y no son el saldo final de ese mes. Corte y pago conservan sus fechas completas independientes.',
+                        'La deuda incluye cargos ya registrados. El calendario de cuotas futuras es un compromiso aparte. Disponible en quetzales resta deuda ordinaria y reservas de capital conocidas en GTQ. El disponible en dólares es su equivalente dividido por el tipo de cambio fijo indicado, redondeado a dos decimales. Ambos importes representan el mismo disponible. Si falta el límite GTQ, el desglose o la asignación de un pago entre líneas, se omite ese disponible. Los movimientos del período corresponden a meses calendario y no son el saldo final de ese mes. Corte y pago conservan sus fechas completas independientes.',
                       ),
                     ),
                     actions: [

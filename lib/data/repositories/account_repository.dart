@@ -5,6 +5,9 @@ import '../../domain/models/financial_institution.dart';
 abstract interface class AccountRepository {
   Future<List<Account>> getAccounts();
   Future<List<FinancialInstitution>> getFinancialInstitutions();
+  Future<FinancialInstitution> createFinancialInstitution(
+    FinancialInstitutionDetails details,
+  );
   Future<Account> createAccount(AccountDetails details);
   Future<Account> updateAccount(int id, AccountDetails details);
   Future<List<DebitCard>> getDebitCards();

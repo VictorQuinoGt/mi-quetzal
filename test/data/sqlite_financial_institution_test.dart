@@ -48,6 +48,31 @@ void main() {
     await databaseFactoryFfi.deleteDatabase(path);
     await directory.delete();
   });
+  test(
+    'Alta desde cuentas persiste y comparte el catálogo con movimientos',
+    () async {
+      final entity = await accounts.createFinancialInstitution(
+        FinancialInstitutionDetails(name: 'Entidad sintética desde cuenta'),
+      );
+      final account = await accounts.createAccount(bank(entity: entity.id));
+      expect(
+        (await movements.getSnapshot()).financialInstitutions.single.id,
+        entity.id,
+      );
+      await database.close();
+      database = LocalDatabase(factory: databaseFactoryFfi, path: path);
+      accounts = SqliteAccountRepository(database, now: () => date);
+      expect(
+        (await accounts.getFinancialInstitutions()).single.details.name,
+        'Entidad sintética desde cuenta',
+      );
+      final recovered = (await accounts.getAccounts()).single;
+      expect(recovered.id, account.id);
+      expect(recovered.details.financialInstitutionId, entity.id);
+      expect(recovered.currentBalance.minorUnits, 1000);
+    },
+  );
+
   Future<Database> oldDatabase() async {
     final old = await databaseFactoryFfi.openDatabase(
       path,

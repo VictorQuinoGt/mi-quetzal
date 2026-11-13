@@ -86,6 +86,151 @@ void main() {
     );
   }
 
+  for (final type in [AccountType.bank, AccountType.creditCard]) {
+    testWidgets('Crea entidad desde nueva cuenta $type y la selecciona', (
+      tester,
+    ) async {
+      await boot(tester);
+      await press(tester, find.text('Agregar cuenta'));
+      await tester.enterText(field('Alias'), 'Nueva cuenta sintética');
+      if (type == AccountType.creditCard) {
+        await choose(
+          tester,
+          find.byType(DropdownButtonFormField<AccountType>),
+          'Tarjeta de crédito',
+        );
+      }
+      final balanceLabel = type == AccountType.bank
+          ? 'Saldo inicial'
+          : 'Deuda inicial QTZ';
+      await tester.enterText(field(balanceLabel), '25.29');
+      expect(accounts.financialInstitutions, isEmpty);
+      await press(tester, find.text('Agregar entidad financiera'));
+      await tester.enterText(
+        field('Nombre de entidad financiera'),
+        'Entidad desde cuenta',
+      );
+      await press(tester, find.text('Guardar entidad'));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Entidad desde cuenta'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(field('Alias')).controller!.text,
+        'Nueva cuenta sintética',
+      );
+      expect(
+        tester.widget<TextField>(field(balanceLabel)).controller!.text,
+        '25.29',
+      );
+      await press(tester, find.text('Guardar cuenta'));
+      expect(accounts.stored.last.details.financialInstitutionId, 1);
+      expect(accounts.stored.last.currentBalance.minorUnits, 2529);
+    });
+  }
+
+  testWidgets('La entidad queda en el catálogo aunque se cancele la cuenta', (
+    tester,
+  ) async {
+    await boot(tester);
+    await press(tester, find.text('Agregar cuenta'));
+    await press(tester, find.text('Agregar entidad financiera'));
+    await tester.enterText(
+      field('Nombre de entidad financiera'),
+      'Entidad independiente',
+    );
+    await press(tester, find.text('Guardar entidad'));
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(accounts.stored, hasLength(2));
+    await openFinancialAdministration(tester);
+    expect(find.text('Entidad independiente'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Cancelar, validar y reintentar entidad conserva el formulario y bloquea volver',
+    (tester) async {
+      await boot(tester);
+      await openAccountDetails(tester, 1);
+      await press(tester, find.byTooltip('Editar Banco sintético'));
+      await press(tester, find.text('Agregar entidad financiera'));
+      await press(tester, find.text('Cancelar'));
+      expect(accounts.financialInstitutions, isEmpty);
+      expect(find.text('Editar cuenta'), findsOneWidget);
+
+      await press(tester, find.text('Agregar entidad financiera'));
+      await press(tester, find.text('Guardar entidad'));
+      expect(
+        find.textContaining('nombre de entidad de 1 a 60'),
+        findsOneWidget,
+      );
+      expect(accounts.createInstitutionCalls, 0);
+      await tester.enterText(
+        field('Nombre de entidad financiera'),
+        'Entidad nueva',
+      );
+      accounts.failSave = true;
+      await press(tester, find.text('Guardar entidad'));
+      expect(
+        find.textContaining('No se pudo crear la entidad'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(field('Nombre de entidad financiera'))
+            .controller!
+            .text,
+        'Entidad nueva',
+      );
+      accounts.failSave = false;
+      accounts.saveGate = Completer<void>();
+      await tester.tap(find.text('Guardar entidad'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Guardando entidad…'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Cancelar'))
+            .onPressed,
+        isNull,
+      );
+      await Navigator.of(tester.element(find.byType(AlertDialog))).maybePop();
+      await tester.pump();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      accounts.saveGate!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Entidad nueva'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(field('Alias')).controller!.text,
+        'Banco sintético',
+      );
+      expect(accounts.createInstitutionCalls, 2);
+    },
+  );
+
+  testWidgets('Débito crea entidad sin perder la cuenta bancaria vinculada', (
+    tester,
+  ) async {
+    await boot(tester);
+    await openAccountDetails(tester, 1, debit: true);
+    await press(tester, find.byTooltip('Editar Débito sintético'));
+    await press(tester, find.text('Agregar entidad financiera'));
+    await tester.enterText(
+      field('Nombre de entidad financiera'),
+      'Entidad de débito',
+    );
+    await press(tester, find.text('Guardar entidad'));
+    expect(find.text('Entidad de débito'), findsOneWidget);
+    await press(tester, find.text('Guardar tarjeta'));
+    expect(accounts.cards.single.details.financialInstitutionId, 1);
+    expect(accounts.cards.single.details.accountId, 1);
+  });
+
   testWidgets(
     'Crea catálogo en Categorías y asigna entidad y terminación sin alterar saldos',
     (tester) async {

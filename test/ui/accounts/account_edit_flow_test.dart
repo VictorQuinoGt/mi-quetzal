@@ -51,6 +51,7 @@ void main() {
         type: AccountType.creditCard,
         openingBalance: Money(500, Currency.gtq),
         secondaryOpeningBalance: Money(2000, Currency.usd),
+        secondaryCreditLimit: Money(50000, Currency.usd),
         openingDate: DateTime(2026, 10, 1),
       ),
     );
@@ -91,8 +92,9 @@ void main() {
   }
 
   testWidgets(
-    'Registra una sola tarjeta con aperturas y límites GTQ/USD visibles',
+    'Registra deudas juntas en QTZ/USD con ayuda uniforme y solo límite GTQ',
     (tester) async {
+      final today = DateUtils.dateOnly(DateTime.now());
       await boot(tester);
       await press(tester, find.text('Agregar cuenta'));
       await tester.enterText(field('Alias'), 'Crédito nuevo sintético');
@@ -101,10 +103,23 @@ void main() {
         find.byType(DropdownButtonFormField<AccountType>),
         'Tarjeta de crédito',
       );
-      await tester.enterText(field('Deuda inicial'), '10.29');
+      final primary = field('Deuda inicial QTZ');
+      final secondary = field('Deuda inicial USD');
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
+      expect(
+        fields.indexOf(tester.widget<TextField>(secondary)),
+        fields.indexOf(tester.widget<TextField>(primary)) + 1,
+      );
+      expect(
+        tester.widget<TextField>(secondary).decoration!.helperText,
+        tester.widget<TextField>(primary).decoration!.helperText,
+      );
+      expect(find.textContaining('Fecha:'), findsNothing);
+      expect(field('Límite de crédito USD (opcional)'), findsNothing);
+      await tester.enterText(primary, '10.29');
       await tester.enterText(field('Deuda inicial USD'), '20.01');
-      await tester.ensureVisible(field('Límite de crédito USD (opcional)'));
-      await tester.enterText(field('Límite de crédito USD (opcional)'), '500');
       await tester.ensureVisible(field('Límite de crédito (opcional)'));
       await tester.enterText(field('Límite de crédito (opcional)'), '1000');
       await press(tester, find.text('Guardar cuenta'));
@@ -113,10 +128,13 @@ void main() {
         accounts.stored.last.details.secondaryOpeningBalance,
         Money(2001, Currency.usd),
       );
+      expect(accounts.stored.last.details.openingDate, today);
+      expect(accounts.stored.last.details.secondaryCreditLimit, isNull);
       expect(find.text('GTQ 10.29'), findsOneWidget);
       expect(find.text(r'USD 20.01'), findsOneWidget);
       await openAccountDetails(tester, 3);
-      expect(find.text(r'US$ 500.00'), findsOneWidget);
+      expect(find.text('Q 1,000.00'), findsOneWidget);
+      expect(find.text(r'US$: Sin configurar'), findsNothing);
     },
   );
   testWidgets(
@@ -125,6 +143,7 @@ void main() {
       await record(2, Currency.usd, 125);
       await boot(tester);
       await openAccountDetails(tester, 2);
+      expect(find.text(r'US$ 500.00'), findsNothing);
       await press(tester, find.byTooltip('Editar Crédito sintético'));
       expect(
         tester
@@ -138,6 +157,11 @@ void main() {
       await tester.enterText(field('Deuda inicial USD'), '30');
       await press(tester, find.text('Guardar cuenta'));
       expect(accounts.stored, hasLength(2));
+      expect(accounts.stored[1].details.openingDate, DateTime(2026, 10, 1));
+      expect(
+        accounts.stored[1].details.secondaryCreditLimit,
+        Money(50000, Currency.usd),
+      );
       expect(find.text('Crédito actualizado'), findsOneWidget);
       expect(find.text(r'US$ 31.25'), findsOneWidget);
       expect(find.text('Q 5.00'), findsOneWidget);
@@ -145,6 +169,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await boot(tester);
       expect(find.text(r'USD 31.25'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'Editar tarjeta principal USD oculta su límite y conserva datos anteriores',
+    (tester) async {
+      await accounts.createAccount(
+        AccountDetails(
+          name: 'Crédito principal USD',
+          type: AccountType.creditCard,
+          openingBalance: Money(1000, Currency.usd),
+          creditLimit: Money(50000, Currency.usd),
+          openingDate: DateTime(2026, 10, 1),
+        ),
+      );
+      await boot(tester);
+      await openAccountDetails(tester, 3);
+      expect(find.text(r'US$ 500.00'), findsNothing);
+      expect(find.text('Límite'), findsNothing);
+      await press(tester, find.byTooltip('Editar Crédito principal USD'));
+      expect(field('Límite de crédito USD (opcional)'), findsNothing);
+      await tester.enterText(field('Deuda inicial QTZ'), '20');
+      final limit = field('Límite de crédito (opcional)');
+      expect(tester.widget<TextField>(limit).decoration!.prefixText, 'GTQ ');
+      await tester.ensureVisible(limit);
+      await tester.enterText(limit, '1200');
+      await press(tester, find.text('Guardar cuenta'));
+      final saved = accounts.stored.last.details;
+      expect(saved.creditLimit, Money(50000, Currency.usd));
+      expect(saved.secondaryCreditLimit, Money(120000, Currency.gtq));
+      expect(saved.openingDate, DateTime(2026, 10, 1));
+      expect(find.text('Q 1,200.00'), findsOneWidget);
+      expect(find.text(r'US$ 500.00'), findsNothing);
     },
   );
   testWidgets(

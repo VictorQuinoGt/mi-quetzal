@@ -113,18 +113,25 @@ class AccountDetailViewModel extends ChangeNotifier {
   List<Money> get availableCredits => [
     if (account != null)
       for (final balance in account!.currentBalances)
-        ?account!.availableCreditFor(balance.currency),
+        ?_availableCredit(balance.currency),
   ];
+  Money? _availableCredit(Currency currency) => currency == Currency.usd
+      ? account?.availableCreditUsdEquivalent
+      : account?.availableCreditFor(currency);
+  String? get availableConversionNote =>
+      availableCredits.any((value) => value.currency == Currency.usd)
+      ? 'Equivalente USD a Q ${Money(Account.standardGtqMinorUnitsPerUsd, Currency.gtq).input} por US\$ 1.'
+      : null;
   List<String> get limitLabels => [
     if (account != null)
       for (final balance in account!.currentBalances)
-        account!.creditLimitFor(balance.currency)?.compact ??
-            '${balance.currency == Currency.gtq ? 'Q' : 'US\$'}: Sin configurar',
+        if (balance.currency == Currency.gtq)
+          account!.creditLimitFor(Currency.gtq)?.compact ?? 'Q: Sin configurar',
   ];
   List<String> get availableLabels => [
     if (account != null)
       for (final balance in account!.currentBalances)
-        account!.availableCreditFor(balance.currency)?.compact ??
+        _availableCredit(balance.currency)?.compact ??
             '${balance.currency == Currency.gtq ? 'Q' : 'US\$'}: Sin determinar',
   ];
   AccountActivity? get activity => account == null

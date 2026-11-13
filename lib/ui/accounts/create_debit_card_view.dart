@@ -5,6 +5,7 @@ import '../../domain/models/debit_card.dart';
 
 import '../core/page_content.dart';
 import 'accounts_view_model.dart';
+import 'financial_institution_field.dart';
 import 'account_labels.dart';
 
 class CreateDebitCardView extends StatefulWidget {
@@ -124,35 +125,12 @@ class _CreateDebitCardViewState extends State<CreateDebitCardView> {
                       : (id) => setState(() => _accountId = id),
                 ),
                 const SizedBox(height: 20),
-                DropdownButtonFormField<int>(
-                  key: const ValueKey('debit-institution'),
-                  initialValue: _institutionId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Entidad financiera',
-                    border: const OutlineInputBorder(),
-                    errorText: vm.fieldErrors['financialInstitution'],
-                    errorMaxLines: 3,
-                    helperText: 'Administra las entidades desde Categorías.',
-                    helperMaxLines: 2,
-                  ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: null,
-                      child: Text('De la cuenta bancaria'),
-                    ),
-                    for (final institution in vm.financialInstitutions)
-                      DropdownMenuItem(
-                        value: institution.id,
-                        child: Text(
-                          institution.details.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: vm.isSaving
-                      ? null
-                      : (value) => setState(() => _institutionId = value),
+                FinancialInstitutionField(
+                  viewModel: vm,
+                  selectedId: _institutionId,
+                  dropdownKey: const ValueKey('debit-institution'),
+                  unspecifiedLabel: 'De la cuenta bancaria',
+                  onChanged: (value) => setState(() => _institutionId = value),
                 ),
                 const SizedBox(height: 20),
                 TextField(

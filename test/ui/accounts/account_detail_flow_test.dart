@@ -104,6 +104,31 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('Muestra disponible USD convertido y el tipo de cambio fijo', (
+    tester,
+  ) async {
+    await accounts.createAccount(
+      AccountDetails(
+        name: 'Crédito conversión',
+        type: AccountType.creditCard,
+        openingBalance: Money(150000, Currency.gtq),
+        secondaryOpeningBalance: Money(0, Currency.usd),
+        creditLimit: Money(1100000, Currency.gtq),
+        openingDate: DateTime(2026, 10, 1),
+      ),
+    );
+    await boot(tester);
+    await openAccountDetails(tester, 4);
+    expect(find.text('Q 9,500.00'), findsOneWidget);
+    expect(find.text(r'US$ 1,217.95'), findsOneWidget);
+    expect(find.text(r'US$: Sin determinar'), findsNothing);
+    expect(find.text(r'Equivalente USD a Q 7.80 por US$ 1.'), findsOneWidget);
+    await press(tester, find.byTooltip('Ayuda sobre deuda y período'));
+    expect(
+      find.textContaining('Ambos importes representan el mismo disponible.'),
+      findsOneWidget,
+    );
+  });
   testWidgets(
     'Lista compacta abre la cuenta correcta, sin lápices ni botón flotante',
     (tester) async {

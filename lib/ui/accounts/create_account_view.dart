@@ -6,6 +6,7 @@ import '../../domain/models/money.dart';
 import '../core/page_content.dart';
 import 'account_labels.dart';
 import 'accounts_view_model.dart';
+import 'financial_institution_field.dart';
 
 class CreateAccountView extends StatefulWidget {
   const CreateAccountView({super.key, required this.viewModel, this.account});
@@ -17,6 +18,8 @@ class CreateAccountView extends StatefulWidget {
 }
 
 class _CreateAccountViewState extends State<CreateAccountView> {
+  static const _balanceHelp =
+      'Hasta 2 decimales, sin separadores de miles. Escribe 0 si no hay saldo.';
   final _name = TextEditingController();
   final _balance = TextEditingController();
   final _limit = TextEditingController();
@@ -29,12 +32,10 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   int? _institutionId;
   DateTime? _closingDate;
   DateTime? _paymentDate;
-  late DateTime _date;
 
   @override
   void initState() {
     super.initState();
-    _date = widget.viewModel.today;
     if (widget.account case final account?) {
       final details = account.details;
       _name.text = details.name;
@@ -49,7 +50,6 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       _secondaryBalance.text = details.secondaryOpeningBalance?.input ?? '';
       _secondaryLimit.text = details.secondaryCreditLimit?.input ?? '';
       _bankAccountType = details.bankAccountType;
-      _date = details.openingDate;
     }
   }
 
@@ -79,25 +79,21 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       type: _type,
       currency: _currency,
       openingBalance: _balance.text,
-      openingDate: _date,
-      creditLimit: _limit.text,
+      openingDate:
+          widget.account?.details.openingDate ?? widget.viewModel.today,
+      creditLimit: _currency == Currency.usd
+          ? widget.account?.details.creditLimit?.input ?? ''
+          : _limit.text,
       lastFour: _lastFour.text,
       bankAccountType: _bankAccountType,
       secondaryOpeningBalance: _secondaryBalance.text,
-      secondaryCreditLimit: _secondaryLimit.text,
+      secondaryCreditLimit: _currency == Currency.gtq
+          ? (_secondaryBalance.text.trim().isEmpty
+                ? ''
+                : widget.account?.details.secondaryCreditLimit?.input ?? '')
+          : _secondaryLimit.text,
     );
     if (saved && mounted) Navigator.of(context).pop(true);
-  }
-
-  Future<void> _pickDate() async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(1900),
-      lastDate: widget.viewModel.today,
-      helpText: 'Fecha del saldo inicial',
-    );
-    if (selected != null && mounted) setState(() => _date = selected);
   }
 
   Widget _creditDate(
@@ -159,6 +155,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
         final otherCurrency = _currency == Currency.gtq
             ? Currency.usd
             : Currency.gtq;
+        String debtLabel(Currency currency) =>
+            'Deuda inicial ${currency == Currency.gtq ? 'QTZ' : 'USD'}';
         return PopScope(
           canPop: !vm.isSaving,
           child: Scaffold(
@@ -261,35 +259,11 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                   ),
                   if (_type != AccountType.cash) ...[
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<int>(
-                      initialValue: _institutionId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Entidad financiera',
-                        border: const OutlineInputBorder(),
-                        errorText: vm.fieldErrors['financialInstitution'],
-                        errorMaxLines: 3,
-                        helperText:
-                            'Administra las entidades desde Categorías.',
-                        helperMaxLines: 2,
-                      ),
-                      items: [
-                        const DropdownMenuItem<int>(
-                          value: null,
-                          child: Text('Sin especificar'),
-                        ),
-                        for (final institution in vm.financialInstitutions)
-                          DropdownMenuItem(
-                            value: institution.id,
-                            child: Text(
-                              institution.details.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: vm.isSaving
-                          ? null
-                          : (value) => setState(() => _institutionId = value),
+                    FinancialInstitutionField(
+                      viewModel: vm,
+                      selectedId: _institutionId,
+                      onChanged: (value) =>
+                          setState(() => _institutionId = value),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -307,27 +281,41 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                       signed: _type == AccountType.bank,
                     ),
                     decoration: InputDecoration(
-                      labelText: credit ? 'Deuda inicial' : 'Saldo inicial',
+                      labelText: credit
+                          ? debtLabel(_currency)
+                          : 'Saldo inicial',
                       prefixText: '${_currency.code} ',
                       hintText: '0.00',
-                      helperText: 'Hasta 2 decimales, sin separadores de miles. Escribe 0 si no hay saldo.',
+                      helperText: _balanceHelp,
                       helperMaxLines: 3,
                       errorMaxLines: 3,
                       errorText: vm.fieldErrors['openingBalance'],
                       border: const OutlineInputBorder(),
                     ),
                   ),
+                  if (credit) ...[
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _secondaryBalance,
+                      enabled: !vm.isSaving,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: debtLabel(otherCurrency),
+                        prefixText: '${otherCurrency.code} ',
+                        hintText: '0.00',
+                        helperText: _balanceHelp,
+                        helperMaxLines: 3,
+                        errorMaxLines: 3,
+                        errorText: vm.fieldErrors['secondaryOpeningBalance'],
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const Text(
-                    'El saldo inicial indica lo que tenías en esta fecha; no se registra como ingreso ni gasto.',
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: vm.isSaving ? null : _pickDate,
-                    icon: const Icon(Icons.calendar_today_outlined),
-                    label: Text(
-                      'Fecha: ${MaterialLocalizations.of(context).formatMediumDate(_date)}',
-                    ),
+                    'El saldo inicial no se registra como ingreso ni gasto.',
                   ),
                   if (vm.fieldErrors['openingDate'] case final String error)
                     Text(
@@ -351,48 +339,20 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                     ),
                     const SizedBox(height: 20),
                     TextField(
-                      controller: _secondaryBalance,
-                      enabled: !vm.isSaving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Deuda inicial ${otherCurrency.code}',
-                        prefixText: '${otherCurrency.code} ',
-                        helperText: 'Segunda moneda. Deja vacío si aún no la registras; escribe 0 si no tienes deuda.',
-                        helperMaxLines: 3,
-                        errorMaxLines: 3,
-                        errorText: vm.fieldErrors['secondaryOpeningBalance'],
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _secondaryLimit,
-                      enabled: !vm.isSaving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText:
-                            'Límite de crédito ${otherCurrency.code} (opcional)',
-                        prefixText: '${otherCurrency.code} ',
-                        errorMaxLines: 3,
-                        errorText: vm.fieldErrors['secondaryCreditLimit'],
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _limit,
+                      controller: _currency == Currency.gtq
+                          ? _limit
+                          : _secondaryLimit,
                       enabled: !vm.isSaving,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                       decoration: InputDecoration(
                         labelText: 'Límite de crédito (opcional)',
-                        prefixText: '${_currency.code} ',
-                        errorText: vm.fieldErrors['creditLimit'],
+                        prefixText: '${Currency.gtq.code} ',
+                        errorText:
+                            vm.fieldErrors[_currency == Currency.gtq
+                                ? 'creditLimit'
+                                : 'secondaryCreditLimit'],
                         errorMaxLines: 3,
                         border: const OutlineInputBorder(),
                       ),

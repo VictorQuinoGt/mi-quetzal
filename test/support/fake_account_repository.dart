@@ -10,6 +10,22 @@ class FakeAccountRepository implements AccountRepository {
   final List<Account> stored = [];
   final List<DebitCard> cards = [];
   final List<FinancialInstitution> financialInstitutions = [];
+  int createInstitutionCalls = 0;
+  @override
+  Future<FinancialInstitution> createFinancialInstitution(
+    FinancialInstitutionDetails details,
+  ) async {
+    createInstitutionCalls++;
+    if (saveGate != null) await saveGate!.future;
+    if (failSave) throw StateError('Fallo de escritura sintético');
+    final institution = FinancialInstitution(
+      id: financialInstitutions.length + 1,
+      details: details,
+    );
+    financialInstitutions.add(institution);
+    return institution;
+  }
+
   @override
   Future<List<FinancialInstitution>> getFinancialInstitutions() async {
     if (failLoad) throw StateError('Fallo de lectura sintético');
