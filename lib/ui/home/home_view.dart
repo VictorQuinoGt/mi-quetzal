@@ -19,6 +19,7 @@ class HomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return PageContent(
       children: [
         Text('TU ESPACIO FINANCIERO', style: theme.textTheme.labelLarge),
@@ -26,30 +27,40 @@ class HomeView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: AppTheme.navy,
+            color: isDark ? theme.colorScheme.surfaceContainer : AppTheme.navy,
             borderRadius: BorderRadius.circular(28),
+            border: isDark
+                ? Border.all(color: theme.colorScheme.outlineVariant)
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
+              Icon(
                 Icons.spa_outlined,
-                color: Color(0xFFFFB4BC),
+                color: isDark
+                    ? theme.colorScheme.secondary
+                    : const Color(0xFFFFB4BC),
                 size: 36,
               ),
               const SizedBox(height: 20),
               Text(
                 'Tu dinero,\ncon claridad.',
                 style: theme.textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
+                  color: isDark ? theme.colorScheme.onSurface : Colors.white,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Un lugar para organizar tus cuentas, entender tus gastos '
                 'y dar forma a tus planes.',
-                style: TextStyle(color: Color(0xFFE1EAFF), fontSize: 16),
+                style: TextStyle(
+                  color: isDark
+                      ? theme.colorScheme.onSurfaceVariant
+                      : const Color(0xFFE1EAFF),
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 24),
               FilledButton.tonalIcon(

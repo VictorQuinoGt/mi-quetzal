@@ -32,6 +32,8 @@ import '../../ui/movements/create_refund_view.dart';
 import '../../ui/planning/planning_view.dart';
 import 'app_section.dart';
 import 'app_shell_view_model.dart';
+import '../appearance_view_model.dart';
+import '../../domain/models/app_appearance.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -39,11 +41,13 @@ class AppShell extends StatefulWidget {
     required this.accountRepository,
     required this.movementRepository,
     required this.installmentRepository,
+    required this.appearanceViewModel,
     this.enableInstallmentPolling = false,
   });
   final AccountRepository accountRepository;
   final MovementRepository movementRepository;
   final InstallmentRepository installmentRepository;
+  final AppearanceViewModel appearanceViewModel;
   final bool enableInstallmentPolling;
 
   @override
@@ -402,6 +406,41 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             final wide = constraints.maxWidth >= 840;
             return Scaffold(
               appBar: AppBar(
+                actions: [
+                  PopupMenuButton<AppAppearance>(
+                    tooltip: 'Apariencia',
+                    enabled: !widget.appearanceViewModel.isSaving,
+                    initialValue: widget.appearanceViewModel.appearance,
+                    icon: Icon(switch (widget.appearanceViewModel.appearance) {
+                      AppAppearance.system => Icons.brightness_auto_outlined,
+                      AppAppearance.light => Icons.light_mode_outlined,
+                      AppAppearance.dark => Icons.dark_mode_outlined,
+                    }),
+                    onSelected: (appearance) async {
+                      await widget.appearanceViewModel.select(appearance);
+                      if (!mounted || !context.mounted) return;
+                      final error = widget.appearanceViewModel.error;
+                      if (error != null) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(error)));
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      for (final appearance in AppAppearance.values)
+                        CheckedPopupMenuItem(
+                          value: appearance,
+                          checked:
+                              widget.appearanceViewModel.appearance ==
+                              appearance,
+                          child: Text(switch (appearance) {
+                            AppAppearance.system => 'Sistema',
+                            AppAppearance.light => 'Claro',
+                            AppAppearance.dark => 'Oscuro',
+                          }),
+                        ),
+                    ],
+                  ),
+                ],
                 title: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

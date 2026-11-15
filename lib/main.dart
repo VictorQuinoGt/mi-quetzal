@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app/mi_quetzal_app.dart';
+import 'app/appearance_view_model.dart';
+import 'data/repositories/preferences_settings_repository.dart';
 import 'data/repositories/sqlite_account_repository.dart';
 import 'data/repositories/sqlite_movement_repository.dart';
 import 'data/services/local_database.dart';
@@ -11,6 +13,8 @@ import 'data/services/installment_background.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final database = LocalDatabase(factory: platformDatabaseFactory);
+  final appearance = AppearanceViewModel(PreferencesSettingsRepository());
+  await appearance.load();
   // La recuperación al abrir funciona aunque Android difiera o restrinja el trabajo de fondo.
   try {
     await startInstallmentBackgroundWork();
@@ -22,6 +26,7 @@ Future<void> main() async {
       accountRepository: SqliteAccountRepository(database),
       movementRepository: SqliteMovementRepository(database),
       installmentRepository: SqliteInstallmentRepository(database),
+      appearanceViewModel: appearance,
       enableInstallmentPolling: true,
     ),
   );

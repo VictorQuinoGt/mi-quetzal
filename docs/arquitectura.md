@@ -58,6 +58,8 @@ El estado de navegación es efímero y comienza en Inicio en cada arranque. Cuen
 
 ## Estado y dependencias
 
+La apariencia se representa con `AppAppearance` (Sistema/Claro/Oscuro). `PreferencesSettingsRepository` implementa `SettingsRepository` usando el servicio `SharedPreferencesAsync`, independiente de la base financiera. `main.dart` compone y carga `AppearanceViewModel` antes de `runApp` para restaurar la selección sin mostrar primero otro tema. `MiQuetzalApp` observa ese ViewModel y configura `theme`, `darkTheme` y `themeMode`; `AppShell` le envía la selección del menú de apariencia. El guardado aplica el tema inmediatamente, bloquea envíos simultáneos y revierte ante error. Cambiar el tema conserva navegación y formularios. Los componentes Material heredan el esquema, incluidos diálogos, campos, calendarios y menús; Inicio adapta sus colores de marca según el brillo.
+
 Comenzar con `ChangeNotifier` y herramientas de escucha del SDK. Recibir dependencias por constructor. No introducir frameworks de estado, service locators o generación de código por anticipación: una necesidad concreta puede justificar una decisión posterior documentada.
 
 Cada ViewModel expone carga, vacío, datos y error. La View no interpreta excepciones SQL ni convierte archivos. Usar identificadores estables para entidades y operaciones; nombres visibles y últimos cuatro dígitos no son claves primarias.

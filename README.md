@@ -6,6 +6,8 @@ Aplicación personal para Android orientada al control de cuentas, tarjetas de c
 
 Aplicación Flutter con tema azul y rojo e interfaz en español:
 
+- Apariencia Sistema, Claro u Oscuro desde el botón de la barra superior. Sistema es el valor inicial y sigue los cambios del dispositivo; la elección se guarda localmente y se recupera antes de mostrar la app. El modo oscuro usa azul noche, superficies diferenciadas y acentos azul claro/coral.
+
 - Inicio con accesos a Movimientos, Cuentas y Planificación.
 - Navegación inferior en móvil y lateral desde 840 px de ancho.
 - Estado de navegación en `AppShellViewModel` mediante `ChangeNotifier`.
@@ -37,6 +39,8 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 Cuentas muestra una sola etiqueta: «Deuda actual» para crédito, «Saldo disponible» para banco/efectivo y «Saldo de cuenta vinculada» para débito. Los importes a favor se identifican por moneda. La lista omite aperturas, fechas, límites y lápices; el detalle contiene los datos ampliados y el acceso de edición. Se pueden editar alias, aperturas, fechas, límites, últimos cuatro, tipo bancario y entidad; el tipo general y la moneda principal de una cuenta existente se conservan. La edición general de movimientos y el borrado aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
 
 ## Desarrollo
+
+La preferencia de apariencia utiliza `shared_preferences` con su API `SharedPreferencesAsync` (Android y web), separada de SQLite y sin modificar datos financieros. Si no se puede leer, se usa Sistema; si falla el guardado, se restaura la selección anterior y se ofrece un mensaje para reintentar.
 
 - Flutter con soporte Android. Entorno revisado: Flutter 3.47.0 / Dart 3.13.0.
 - Restricción Dart actual: `^3.13.0` en `pubspec.yaml`.

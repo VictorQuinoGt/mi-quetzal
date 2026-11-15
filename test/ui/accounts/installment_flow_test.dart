@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/app/mi_quetzal_app.dart';
+import 'package:mi_quetzal/app/appearance_view_model.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_account_repository.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_movement_repository.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_installment_repository.dart';
@@ -10,16 +11,21 @@ import 'package:mi_quetzal/domain/models/installment_plan.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../support/fake_settings_repository.dart';
+
 Finder field(String label) => find.byWidgetPredicate(
   (w) => w is TextField && w.decoration?.labelText == label,
 );
 Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 5; i++) {
+  // SQLite FFI necesita tiempo real; pumpAndSettle solo avanza el reloj simulado.
+  for (var i = 0; i < 100; i++) {
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 60)),
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
+    if (!tester.binding.hasScheduledFrame) return;
   }
+  fail('La interfaz no terminó de cargar después de esperar a SQLite.');
 }
 
 Future<void> press(WidgetTester tester, Finder finder) async {
@@ -64,6 +70,7 @@ void main() {
           accountRepository: accounts,
           movementRepository: movements,
           installmentRepository: plans,
+          appearanceViewModel: AppearanceViewModel(FakeSettingsRepository()),
         ),
       );
       await settle(tester);
@@ -152,6 +159,7 @@ void main() {
           accountRepository: accounts,
           movementRepository: movements,
           installmentRepository: plans,
+          appearanceViewModel: AppearanceViewModel(FakeSettingsRepository()),
         ),
       );
       await settle(tester);
