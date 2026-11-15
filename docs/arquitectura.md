@@ -40,6 +40,8 @@ Implementado en este incremento:
 
 El estado de navegación es efímero y comienza en Inicio en cada arranque. Cuentas coloca «Agregar cuenta» en el encabezado, sin FAB; el menú de administración abre entidades y el detalle bancario permite vincular débito con el banco precargado. Las demás secciones conservan «Registrar». Los detalles se apilan sobre Cuentas, manteniendo su sección activa; el listado usa PageStorage para conservar posición. Tras editar se recargan detalle/lista y el estado general de movimientos, conservando los filtros. Los formularios no se pueden cerrar durante una escritura y conservan los datos si falla.
 
+El detalle ofrece «Registrar movimiento» usando su `AccountDetailTarget` y su ledger privado. `MovementsViewModel` resuelve la cuenta, las operaciones admitidas y los valores iniciales, y valida que una escritura contextual conserve cuenta/destino/tarjeta. `CreateMovementView` mantiene fija la referencia de contexto: crédito es origen de compras o destino de pagos; débito identifica la compra sobre el banco vinculado. La moneda de una compra en crédito se puede elegir entre sus aperturas; para un pago el usuario elige un origen compatible y su moneda. Guardar vuelve al mismo detalle, conserva período/pestaña y recarga Cuentas, el historial global y los detalles abiertos sin alterar filtros. La recuperación de cuotas no se inicia mientras alguno de esos ledgers está guardando. El acceso general de Movimientos conserva la selección libre.
+
 | Ruta | Contenido previsto |
 | --- | --- |
 | `lib/main.dart` | Entrada de la aplicación. |

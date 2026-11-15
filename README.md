@@ -21,6 +21,7 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Catálogo de entidades financieras en Categorías, seleccionable en cuentas y tarjetas; alta directa junto al selector, con selección automática y conservación del formulario. Terminación bancaria opcional de cuatro dígitos.
 - Tarjetas compactas que se abren completas al tocar: alias, entidad configurada, tipo, terminación y una etiqueta de importes por cuenta, con GTQ/USD separados.
 - Detalle propio por identificador de cuenta o tarjeta, con edición, datos completos y movimientos por mes calendario, independiente de los filtros globales.
+- «Registrar movimiento» desde el detalle abre el formulario con la cuenta fija. En crédito permite compra/gasto o pago con la tarjeta como destino y origen de fondos explícito; en débito conserva tarjeta y banco vinculado para compras. Banco/efectivo conservan su cuenta al cambiar de operación. Guardar regresa al mismo detalle, mantiene el período y actualiza saldos, listado e historial general.
 - Resumen de crédito compacto con deuda Q/US$, Fecha corte/Fecha pago en dd/MM, límite y disponible en quetzales, y equivalente del disponible en USD a Q 7.80 por US$ 1; pestañas Movimientos y Cuotas.
 - Compras en cuotas con calendario previo, planes iniciados, cargos mensuales recuperables, edición futura, cancelación y conciliación explícita. Consultar [gestión de cuotas](docs/cuotas.md).
 - Movimientos con descripción, fecha/categoría, tipo con texto/ícono e importe; tocar la fila o su flecha abre el detalle y las acciones de categorizar/devolver.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/movement.dart';
 import '../../domain/models/account.dart';
+import '../../domain/models/account_activity.dart';
 import '../../domain/models/money.dart';
 import '../core/page_content.dart';
 import '../accounts/account_labels.dart';
@@ -9,8 +10,9 @@ import 'movement_labels.dart';
 import 'movements_view_model.dart';
 
 class CreateMovementView extends StatefulWidget {
-  const CreateMovementView({super.key, required this.viewModel});
+  const CreateMovementView({super.key, required this.viewModel, this.target});
   final MovementsViewModel viewModel;
+  final AccountDetailTarget? target;
   @override
   State<CreateMovementView> createState() => _CreateMovementViewState();
 }
@@ -29,6 +31,17 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   void initState() {
     super.initState();
     _date = widget.viewModel.today;
+    _selectOperation(_type);
+  }
+
+  void _selectOperation(MovementType type) {
+    final defaults = widget.viewModel.defaultsFor(type, widget.target);
+    _type = type;
+    _accountId = defaults.accountId;
+    _counterpartyId = defaults.counterpartyId;
+    _debitCardId = defaults.debitCardId;
+    _currency = defaults.currency;
+    _categoryId = null;
   }
 
   @override
@@ -50,6 +63,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       amount: _amount.text,
       description: _description.text,
       date: _date,
+      target: widget.target,
     );
     if (saved && mounted) Navigator.of(context).pop(true);
   }
@@ -70,10 +84,27 @@ class _CreateMovementViewState extends State<CreateMovementView> {
     listenable: widget.viewModel,
     builder: (context, _) {
       final vm = widget.viewModel;
+      final contextAccount = vm.contextAccountFor(widget.target);
+      if (widget.target != null && contextAccount == null) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Nuevo movimiento')),
+          body: const SafeArea(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Esta cuenta o tarjeta ya no está disponible.'),
+            ),
+          ),
+        );
+      }
+      final defaults = vm.defaultsFor(_type, widget.target);
+      final lockedOrigin = defaults.accountId != null;
+      final lockedDestination = defaults.counterpartyId != null;
       final needsOther =
           _type == MovementType.transfer || _type == MovementType.creditPayment;
-      final origins = vm.originsFor(_type);
-      final destinations = vm.destinationsFor(_type, _accountId);
+      final origins = vm.originsFor(_type, target: widget.target);
+      final destinations = lockedDestination
+          ? [contextAccount!]
+          : vm.destinationsFor(_type, _accountId);
       final selectedAccount = vm.accountById(_accountId);
       final currencies =
           selectedAccount?.details.openingBalances
@@ -92,6 +123,13 @@ class _CreateMovementViewState extends State<CreateMovementView> {
           body: SafeArea(
             child: PageContent(
               children: [
+                if (contextAccount != null) ...[
+                  Text(
+                    'Movimiento para: ${widget.target!.kind == AccountDetailKind.debitCard ? vm.debitCardById(widget.target!.id)!.details.name : contextAccount.identification}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 DropdownButtonFormField<MovementType>(
                   initialValue: _type,
                   isExpanded: true,
@@ -100,9 +138,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    for (final type in MovementType.values.where(
-                      (t) => t != MovementType.refund,
-                    ))
+                    for (final type in vm.operationsFor(widget.target))
                       DropdownMenuItem(
                         value: type,
                         child: Text(
@@ -114,14 +150,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                   ],
                   onChanged: vm.isSaving
                       ? null
-                      : (type) => setState(() {
-                          _type = type!;
-                          _accountId = null;
-                          _counterpartyId = null;
-                          _debitCardId = null;
-                          _categoryId = null;
-                          _currency = null;
-                        }),
+                      : (type) => setState(() => _selectOperation(type!)),
                 ),
                 const SizedBox(height: 16),
                 Text(_type.explanation),
@@ -155,11 +184,11 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                         ),
                       ),
                   ],
-                  onChanged: vm.isSaving
+                  onChanged: vm.isSaving || lockedOrigin
                       ? null
                       : (id) => setState(() {
                           _accountId = id;
-                          _counterpartyId = null;
+                          _counterpartyId = defaults.counterpartyId;
                           _debitCardId = null;
                           _currency = vm
                               .accountById(id)
@@ -217,7 +246,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           ),
                         ),
                     ],
-                    onChanged: vm.isSaving
+                    onChanged: vm.isSaving || defaults.debitCardId != null
                         ? null
                         : (id) => setState(() => _debitCardId = id),
                   ),
@@ -257,7 +286,8 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                           ),
                         ),
                     ],
-                    onChanged: vm.isSaving || _accountId == null
+                    onChanged:
+                        vm.isSaving || _accountId == null || lockedDestination
                         ? null
                         : (id) => setState(() => _counterpartyId = id),
                   ),

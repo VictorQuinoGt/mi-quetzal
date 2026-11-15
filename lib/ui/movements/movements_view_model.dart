@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' hide Category;
 
 import '../../data/repositories/movement_repository.dart';
 import '../../domain/models/account.dart';
+import '../../domain/models/account_activity.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/monthly_summary.dart';
 import '../../domain/models/debit_card.dart';
@@ -258,9 +259,62 @@ class MovementsViewModel extends ChangeNotifier {
     return null;
   }
 
-  List<Account> originsFor(MovementType type) => accounts
-      .where((account) => MovementRules.canBeOrigin(account, type))
-      .toList();
+  Account? contextAccountFor(AccountDetailTarget? target) => target == null
+      ? null
+      : accountById(
+          target.kind == AccountDetailKind.account
+              ? target.id
+              : debitCardById(target.id)?.details.accountId,
+        );
+
+  List<MovementType> operationsFor(AccountDetailTarget? target) {
+    final account = contextAccountFor(target);
+    return [
+      for (final type in MovementType.values)
+        if (type != MovementType.refund &&
+            (target == null ||
+                account != null &&
+                    (target.kind == AccountDetailKind.debitCard
+                        ? type == MovementType.expense
+                        : MovementRules.canBeOrigin(account, type) ||
+                              MovementRules.canBeDestination(account, type))))
+          type,
+    ];
+  }
+
+  ({int? accountId, int? counterpartyId, int? debitCardId, Currency? currency})
+  defaultsFor(MovementType type, AccountDetailTarget? target) {
+    final account = contextAccountFor(target);
+    final origin = account != null && MovementRules.canBeOrigin(account, type);
+    return (
+      accountId: origin ? account.id : null,
+      counterpartyId: account != null && !origin ? account.id : null,
+      debitCardId:
+          target?.kind == AccountDetailKind.debitCard &&
+              type == MovementType.expense
+          ? debitCardById(target!.id)?.id
+          : null,
+      currency: origin ? account.details.openingBalance.currency : null,
+    );
+  }
+
+  List<Account> originsFor(MovementType type, {AccountDetailTarget? target}) {
+    final fixedDestination = accountById(
+      defaultsFor(type, target).counterpartyId,
+    );
+    return accounts
+        .where(
+          (account) =>
+              MovementRules.canBeOrigin(account, type) &&
+              (fixedDestination == null ||
+                  fixedDestination.details.openingBalanceFor(
+                        account.details.openingBalance.currency,
+                      ) !=
+                      null),
+        )
+        .toList();
+  }
+
   List<Account> destinationsFor(MovementType type, int? originId) {
     final origin = accountById(originId);
     return accounts
@@ -309,6 +363,7 @@ class MovementsViewModel extends ChangeNotifier {
     int? debitCardId,
     int? categoryId,
     int? originalMovementId,
+    AccountDetailTarget? target,
     Currency? currency,
     required String amount,
     required String description,
@@ -319,6 +374,20 @@ class MovementsViewModel extends ChangeNotifier {
     _saveError = null;
     MovementDetails details;
     try {
+      if (target != null) {
+        final defaults = defaultsFor(type, target);
+        if (!operationsFor(target).contains(type) ||
+            defaults.accountId != null && defaults.accountId != accountId ||
+            defaults.counterpartyId != null &&
+                defaults.counterpartyId != counterpartyAccountId ||
+            defaults.debitCardId != null &&
+                defaults.debitCardId != debitCardId) {
+          throw const MovementValidationException(
+            'account',
+            'El movimiento debe corresponder a la cuenta o tarjeta seleccionada.',
+          );
+        }
+      }
       final account = accountById(accountId);
       if (account == null) {
         throw const MovementValidationException(

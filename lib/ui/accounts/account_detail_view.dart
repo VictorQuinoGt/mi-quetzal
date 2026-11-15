@@ -23,6 +23,7 @@ class AccountDetailView extends StatelessWidget {
     required this.onOpenMovement,
     required this.onAddPlan,
     required this.onOpenPlan,
+    required this.onCreateMovement,
   });
   final AccountDetailViewModel viewModel;
   final Future<void> Function() onEdit;
@@ -31,6 +32,7 @@ class AccountDetailView extends StatelessWidget {
   final ValueChanged<Movement> onOpenMovement;
   final VoidCallback onAddPlan;
   final ValueChanged<InstallmentPlan> onOpenPlan;
+  final VoidCallback onCreateMovement;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -45,6 +47,15 @@ class AccountDetailView extends StatelessWidget {
       final credit = account?.details.type == AccountType.creditCard;
       final theme = Theme.of(context);
       return Scaffold(
+        floatingActionButton: ready
+            ? FloatingActionButton.extended(
+                heroTag: null,
+                onPressed: vm.ledger.isSaving ? null : onCreateMovement,
+                icon: const Icon(Icons.add),
+                label: const Text('Registrar movimiento'),
+                tooltip: 'Registrar movimiento en ${vm.name}',
+              )
+            : null,
         appBar: AppBar(
           title: Text(vm.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
@@ -60,7 +71,7 @@ class AccountDetailView extends StatelessWidget {
             key: PageStorageKey(
               'account-detail-${vm.target.kind.name}-${vm.target.id}',
             ),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [
               if (vm.ledger.status == MovementsStatus.loading)
                 const Center(child: CircularProgressIndicator())

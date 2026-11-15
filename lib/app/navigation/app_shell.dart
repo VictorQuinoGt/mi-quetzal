@@ -86,7 +86,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Future<void> _refreshInstallments() async {
     if (!mounted ||
         _accountsViewModel.isSaving ||
-        _movementsViewModel.isSaving) {
+        _movementsViewModel.isSaving ||
+        _openAccountViewModels.any((vm) => vm.ledger.isSaving)) {
       return;
     }
     await _viewModel.refreshInstallments(
@@ -125,25 +126,32 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _createMovement() async {
-    if (_movementsViewModel.status != MovementsStatus.ready) return;
-    if (_movementsViewModel.accounts.isEmpty) {
+  Future<void> _createMovement({AccountDetailViewModel? accountContext}) async {
+    final vm = accountContext?.ledger ?? _movementsViewModel;
+    if (vm.status != MovementsStatus.ready || vm.isSaving) return;
+    if (vm.accounts.isEmpty) {
       _viewModel.selectSection(AppSection.accounts);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Primero agrega una cuenta')),
       );
       return;
     }
-    _movementsViewModel.startCreate();
+    vm.startCreate();
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) =>
-            CreateMovementView(viewModel: _movementsViewModel),
+            CreateMovementView(viewModel: vm, target: accountContext?.target),
       ),
     );
     if (created == true && mounted) {
-      _viewModel.selectSection(AppSection.movements);
-      await _accountsViewModel.load();
+      if (accountContext == null) {
+        _viewModel.selectSection(AppSection.movements);
+      }
+      await Future.wait([
+        _accountsViewModel.load(),
+        if (accountContext != null) _movementsViewModel.load(),
+        for (final detail in _openAccountViewModels.toList()) detail.load(),
+      ]);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Movimiento guardado')));
@@ -281,6 +289,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           ),
           onAddPlan: () => _editInstallment(vm, null),
           onOpenPlan: (plan) => _openInstallment(vm, plan.id),
+          onCreateMovement: () => _createMovement(accountContext: vm),
         ),
       ),
     );
