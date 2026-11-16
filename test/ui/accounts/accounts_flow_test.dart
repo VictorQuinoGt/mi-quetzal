@@ -11,6 +11,7 @@ import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
 
 import '../../support/fake_account_repository.dart';
+import '../../support/fake_movement_repository.dart';
 
 Finder field(String label) => find.byWidgetPredicate(
   (widget) => widget is TextField && widget.decoration?.labelText == label,
@@ -155,7 +156,10 @@ void main() {
     tester,
   ) async {
     final repository = FakeAccountRepository()..failLoad = true;
-    await tester.pumpWidget(testApp(repository: repository));
+    final movements = FakeMovementRepository(repository)..failLoad = true;
+    await tester.pumpWidget(
+      testApp(repository: repository, movements: movements),
+    );
     await tester.tap(find.text('Explorar mis cuentas'));
     await tester.pumpAndSettle();
     expect(
@@ -163,6 +167,7 @@ void main() {
       findsOneWidget,
     );
     repository.failLoad = false;
+    movements.failLoad = false;
     await tester.tap(find.text('Reintentar'));
     await tester.pumpAndSettle();
     expect(find.text('Nueva cuenta'), findsOneWidget);

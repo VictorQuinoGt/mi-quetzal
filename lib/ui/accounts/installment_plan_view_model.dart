@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/installment_repository.dart';
 import '../../domain/models/installment_plan.dart';
+import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/money.dart';
 import '../movements/movements_view_model.dart';
@@ -43,14 +44,13 @@ class InstallmentPlanViewModel extends ChangeNotifier {
             m.details.amount == row.amount,
       )
       .toList();
-  Future<void> _action(Future<void> Function() run) async {
+  Future<void> _action(Future<LedgerSnapshot> Function() run) async {
     if (busy) return;
     busy = true;
     error = null;
     _emit();
     try {
-      await run();
-      await ledger.load();
+      ledger.applySnapshot(await run());
     } on InstallmentValidationException catch (e) {
       error = e.message;
     } catch (_) {
@@ -61,13 +61,9 @@ class InstallmentPlanViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> cancel() => _action(() async {
-    await repository.cancelPlan(planId);
-  });
+  Future<void> cancel() => _action(() => repository.cancelPlan(planId));
   Future<void> reconcile(int number, int source, String reference) =>
-      _action(() async {
-        await repository.reconcile(planId, number, source, reference);
-      });
+      _action(() => repository.reconcile(planId, number, source, reference));
   void _emit() {
     if (!_disposed) notifyListeners();
   }

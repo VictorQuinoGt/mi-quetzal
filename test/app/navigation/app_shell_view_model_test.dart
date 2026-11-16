@@ -25,60 +25,58 @@ class RefreshPlans extends FakeInstallmentRepository {
 }
 
 void main() {
-  test('Recuperación compartida bloquea reintentos simultáneos y recarga los lectores', () async {
+  test('Recuperación compartida bloquea reintentos y devuelve una sola instantánea', () async {
     final repository = RefreshPlans();
     final vm = AppShellViewModel(installmentRepository: repository);
     addTearDown(vm.dispose);
-    var reads = 0;
-    Future<void> read() async {
-      reads++;
-    }
-
-    final first = vm.refreshInstallments(() => [read, read]);
-    await vm.refreshInstallments(() => [read]);
+    final first = vm.refreshInstallments();
+    expect(await vm.refreshInstallments(), isNull);
     expect(repository.calls, 1);
-    expect(reads, 0);
     repository.gate.complete();
-    await first;
-    expect(reads, 2);
+    expect(await first, isA<LedgerSnapshot>());
   });
-  test(
-    'Recuperación fallida deja que los lectores expongan su estado habitual',
-    () async {
-      final repository = RefreshPlans()..fail = true;
-      repository.gate.complete();
-      final vm = AppShellViewModel(installmentRepository: repository);
-      addTearDown(vm.dispose);
-      var reads = 0;
-      await vm.refreshInstallments(
-        () => [
-          () async {
-            reads++;
-          },
-        ],
-      );
-      expect(reads, 1);
-    },
-  );
+  test('Recuperación fallida no reemplaza los datos confirmados', () async {
+    final repository = RefreshPlans()..fail = true;
+    repository.gate.complete();
+    final vm = AppShellViewModel(installmentRepository: repository);
+    addTearDown(vm.dispose);
+    expect(await vm.refreshInstallments(), isNull);
+    repository.fail = false;
+    expect(await vm.refreshInstallments(), isA<LedgerSnapshot>());
+  });
   test(
     'Cerrar la aplicación mientras recupera no recarga ViewModels descartados',
     () async {
       final repository = RefreshPlans();
       final vm = AppShellViewModel(installmentRepository: repository);
-      var reads = 0;
-      final operation = vm.refreshInstallments(
-        () => [
-          () async {
-            reads++;
-          },
-        ],
-      );
+      final operation = vm.refreshInstallments();
       vm.dispose();
       repository.gate.complete();
-      await operation;
-      expect(reads, 0);
+      expect(await operation, isNull);
     },
   );
+  test('Una actualización iniciada antes de guardar se descarta', () async {
+    final repository = RefreshPlans();
+    final vm = AppShellViewModel(installmentRepository: repository);
+    addTearDown(vm.dispose);
+    final pending = vm.refreshInstallments();
+    vm.invalidateRefresh();
+    repository.gate.complete();
+    expect(await pending, isNull);
+    expect(await vm.refreshInstallments(), isA<LedgerSnapshot>());
+  });
+
+  test('Una recuperación sin respuesta termina y permite reintentar', () async {
+    final repository = RefreshPlans();
+    final vm = AppShellViewModel(
+      installmentRepository: repository,
+      refreshTimeout: const Duration(milliseconds: 1),
+    );
+    addTearDown(vm.dispose);
+    expect(await vm.refreshInstallments(), isNull);
+    repository.gate.complete();
+    expect(await vm.refreshInstallments(), isA<LedgerSnapshot>());
+  });
   test('Comienza en Inicio y notifica solo al cambiar de sección', () {
     final viewModel = AppShellViewModel();
     addTearDown(viewModel.dispose);

@@ -163,10 +163,13 @@ void main() {
       vm.selectHistory(2025, 12);
       repository.failLoad = true;
       await vm.load();
-      expect(vm.ledger.status, MovementsStatus.error);
+      expect(vm.ledger.status, MovementsStatus.ready);
+      expect(vm.ledger.loadError, isNotNull);
+      expect(vm.account, isNotNull);
       repository.failLoad = false;
       await vm.load();
       expect(vm.ledger.status, MovementsStatus.ready);
+      expect(vm.ledger.loadError, isNull);
       expect(vm.target.id, 1);
       expect(vm.selectedMonth, DateTime(2025, 12));
     },

@@ -68,6 +68,10 @@ Comenzar con `ChangeNotifier` y herramientas de escucha del SDK. Recibir depende
 
 Cada ViewModel expone carga, vacío, datos y error. La View no interpreta excepciones SQL ni convierte archivos. Usar identificadores estables para entidades y operaciones; nombres visibles y últimos cuatro dígitos no son claves primarias.
 
+El resultado confirmado de una escritura en movimientos, categorías, devoluciones o cuotas se reutiliza como `LedgerSnapshot`. `AppShell` lo publica en Movimientos, Cuentas y los detalles abiertos sin iniciar lecturas adicionales después del guardado. La recuperación compartida de cuotas devuelve una sola instantánea y no dispara otra ronda de lectores por pantalla; solicitudes simultáneas se agrupan y seleccionar la pestaña activa no repite la actualización. Una recuperación anterior a una escritura confirmada se invalida.
+
+Movimientos y Cuentas limitan sus cargas a 15 segundos. Movimientos mantiene los datos ya cargados durante una actualización; si esta falla o vence, conserva la última información y presenta Reintentar. Una primera carga fallida usa el estado de error existente. Cada carga lleva una generación para descartar resultados atrasados después de aplicar una instantánea más reciente o guardar. Este límite se aplica a lecturas y recuperación automática idempotente, no a escrituras manuales: no se informa de un fallo por tiempo mientras una escritura todavía pudiera confirmarse, evitando envíos duplicados. No se cierra ni elimina la base para resolver una espera.
+
 ## Persistencia y datos
 
 SQLite está implementado para cuentas y movimientos mediante `sqflite` en Android. La adaptación web `sqflite_common_ffi_web` persiste en IndexedDB y es experimental; requiere generar `sqlite3.wasm` y `sqflite_sw.js` mediante `tool/prepare_web.ps1`. Sus archivos generados no se versionan. En desarrollo se mantiene el puerto 5353 para conservar el origen del almacenamiento. No hay sincronización entre plataformas.

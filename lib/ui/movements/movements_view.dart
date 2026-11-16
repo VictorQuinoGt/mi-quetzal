@@ -37,6 +37,18 @@ class MovementsView extends StatelessWidget {
             'Compras, ingresos y transferencias con sus cuentas vinculadas.',
           ),
           const SizedBox(height: 24),
+          if (viewModel.status == MovementsStatus.ready &&
+              viewModel.loadError != null) ...[
+            Text(
+              '${viewModel.loadError} Se conserva la última información disponible.',
+            ),
+            OutlinedButton.icon(
+              onPressed: viewModel.load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (viewModel.status == MovementsStatus.ready) ...[
             Align(
               alignment: Alignment.centerLeft,
@@ -56,6 +68,7 @@ class MovementsView extends StatelessWidget {
             const Text(
               'No se pudo cargar el historial. Tus datos no se han borrado.',
             ),
+            if (viewModel.loadError != null) Text(viewModel.loadError!),
             OutlinedButton.icon(
               onPressed: viewModel.load,
               icon: const Icon(Icons.refresh),

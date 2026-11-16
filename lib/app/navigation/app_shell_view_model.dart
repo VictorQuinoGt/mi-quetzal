@@ -1,32 +1,39 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/installment_repository.dart';
+import '../../domain/models/ledger_snapshot.dart';
 
 import 'app_section.dart';
 
 /// Navegación y coordinación de la recuperación de cuotas entre pantallas.
 class AppShellViewModel extends ChangeNotifier {
-  AppShellViewModel({InstallmentRepository? installmentRepository})
-    : _installments = installmentRepository;
+  AppShellViewModel({
+    InstallmentRepository? installmentRepository,
+    this.refreshTimeout = const Duration(seconds: 15),
+  }) : _installments = installmentRepository;
   final InstallmentRepository? _installments;
+  final Duration refreshTimeout;
+  int _refreshGeneration = 0;
   bool _refreshing = false;
   bool _disposed = false;
   AppSection _section = AppSection.home;
 
   AppSection get section => _section;
 
-  Future<void> refreshInstallments(
-    Iterable<Future<void> Function()> Function() readers,
-  ) async {
-    if (_refreshing || _disposed || _installments == null) return;
+  void invalidateRefresh() => _refreshGeneration++;
+
+  Future<LedgerSnapshot?> refreshInstallments() async {
+    if (_refreshing || _disposed || _installments == null) return null;
+    final generation = ++_refreshGeneration;
     _refreshing = true;
     try {
-      try {
-        await _installments.generateDue();
-      } catch (_) {
-        // Las lecturas siguientes muestran los errores con el estado habitual.
-      }
-      if (!_disposed) await Future.wait(readers().map((read) => read()));
+      final snapshot = await _installments.generateDue().timeout(
+        refreshTimeout,
+      );
+      return !_disposed && generation == _refreshGeneration ? snapshot : null;
+    } catch (_) {
+      // Una actualización fallida conserva la última instantánea confirmada.
+      return null;
     } finally {
       _refreshing = false;
     }

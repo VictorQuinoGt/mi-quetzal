@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/installment_repository.dart';
 import '../../domain/models/installment_plan.dart';
+import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import '../movements/movements_view_model.dart';
@@ -105,10 +106,11 @@ class InstallmentFormViewModel extends ChangeNotifier {
     _emit();
     try {
       final draft = preview!;
+      final LedgerSnapshot snapshot;
       if (editing == null) {
-        await repository.createPlan(draft);
+        snapshot = await repository.createPlan(draft);
       } else {
-        await repository.reviseFuture(
+        snapshot = await repository.reviseFuture(
           editing!.id,
           description: draft.description,
           categoryId: draft.categoryId,
@@ -120,7 +122,7 @@ class InstallmentFormViewModel extends ChangeNotifier {
           fee: draft.monthlyFee,
         );
       }
-      await ledger.load();
+      ledger.applySnapshot(snapshot);
       return true;
     } on InstallmentValidationException catch (e) {
       error = e.message;

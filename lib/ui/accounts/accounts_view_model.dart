@@ -6,15 +6,21 @@ import '../../domain/models/debit_card.dart';
 import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
+import '../../domain/models/ledger_snapshot.dart';
 
 enum AccountsStatus { loading, ready, error }
 
 class AccountsViewModel extends ChangeNotifier {
-  AccountsViewModel(this._repository, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  AccountsViewModel(
+    this._repository, {
+    DateTime Function()? now,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _now = now ?? DateTime.now;
 
   final AccountRepository _repository;
   final DateTime Function() _now;
+  final Duration loadTimeout;
+  int _loadGeneration = 0;
   List<Account> _accounts = const [];
   List<DebitCard> _debitCards = const [];
   List<FinancialInstitution> _financialInstitutions = const [];
@@ -99,23 +105,43 @@ class AccountsViewModel extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (_loading || isSaving) return;
+    if (_disposed || _loading || isSaving) return;
+    final generation = ++_loadGeneration;
     _loading = true;
     _status = AccountsStatus.loading;
     _emit();
     try {
-      final cards = await _repository.getDebitCards();
-      final institutions = await _repository.getFinancialInstitutions();
-      _accounts = await _repository.getAccounts();
-      _debitCards = cards;
-      _financialInstitutions = institutions;
+      final result = await (() async {
+        final cards = await _repository.getDebitCards();
+        final institutions = await _repository.getFinancialInstitutions();
+        final accounts = await _repository.getAccounts();
+        return (cards: cards, institutions: institutions, accounts: accounts);
+      })().timeout(loadTimeout);
+      if (_disposed || generation != _loadGeneration) return;
+      _accounts = result.accounts;
+      _debitCards = result.cards;
+      _financialInstitutions = result.institutions;
       _status = AccountsStatus.ready;
     } catch (_) {
+      if (_disposed || generation != _loadGeneration) return;
       _status = AccountsStatus.error;
     } finally {
-      _loading = false;
-      _emit();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _emit();
+      }
     }
+  }
+
+  void applySnapshot(LedgerSnapshot snapshot) {
+    if (_disposed || isSaving) return;
+    _loadGeneration++;
+    _loading = false;
+    _accounts = snapshot.accounts;
+    _debitCards = snapshot.debitCards;
+    _financialInstitutions = snapshot.financialInstitutions;
+    _status = AccountsStatus.ready;
+    _emit();
   }
 
   Future<bool> createDebitCard({

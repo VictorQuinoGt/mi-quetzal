@@ -44,6 +44,16 @@ class MonthlySummaryView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (vm.status == MovementsStatus.ready && vm.loadError != null) ...[
+            Text(
+              '${vm.loadError} Se conserva la última información disponible.',
+            ),
+            OutlinedButton.icon(
+              onPressed: vm.load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+          ],
           if (vm.status == MovementsStatus.loading)
             const Center(child: CircularProgressIndicator())
           else if (vm.status == MovementsStatus.error) ...[

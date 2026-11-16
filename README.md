@@ -30,6 +30,7 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Importes exactos en centavos, con moneda GTQ o USD, saldo/deuda inicial y fecha.
 - Límite de crédito y últimos cuatro dígitos opcionales; no se solicitan números completos, CVV ni PIN.
 - Persistencia SQLite de cuentas y recuperación al volver a abrir la aplicación.
+- Guardar movimientos, devoluciones, categorías o cuotas actualiza las pantallas con la instantánea confirmada, sin volver a consultar cada lista. Las lecturas tienen un máximo de espera de 15 segundos; una actualización demorada conserva el historial visible y ofrece reintento en Movimientos.
 - Compras/gastos, ingresos, transferencias y pagos de tarjeta con historial persistente.
 - Saldos actuales calculados desde la apertura y los movimientos, sin mezclar monedas.
 - Tarjetas de débito vinculadas a bancos, sin saldos independientes, y compras identificadas por tarjeta.

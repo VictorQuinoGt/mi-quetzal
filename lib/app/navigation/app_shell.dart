@@ -4,6 +4,7 @@ import 'dart:async';
 
 import '../../data/repositories/installment_repository.dart';
 import '../../domain/models/installment_plan.dart';
+import '../../domain/models/ledger_snapshot.dart';
 import '../../ui/accounts/installment_form_view.dart';
 import '../../ui/accounts/installment_form_view_model.dart';
 import '../../ui/accounts/installment_plan_view.dart';
@@ -84,23 +85,33 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) _refreshInstallments();
   }
 
+  bool get _hasPendingWrite =>
+      _accountsViewModel.isSaving ||
+      _movementsViewModel.isSaving ||
+      _openAccountViewModels.any((vm) => vm.ledger.isSaving);
+
   Future<void> _refreshInstallments() async {
-    if (!mounted ||
-        _accountsViewModel.isSaving ||
-        _movementsViewModel.isSaving ||
-        _openAccountViewModels.any((vm) => vm.ledger.isSaving)) {
-      return;
+    if (!mounted || _hasPendingWrite) return;
+    final snapshot = await _viewModel.refreshInstallments();
+    if (mounted && snapshot != null && !_hasPendingWrite) {
+      _publishSnapshot(snapshot, invalidateRefresh: false);
     }
-    await _viewModel.refreshInstallments(
-      () => [
-        _accountsViewModel.load,
-        _movementsViewModel.load,
-        for (final vm in _openAccountViewModels.toList()) vm.load,
-      ],
-    );
+  }
+
+  void _publishSnapshot(
+    LedgerSnapshot snapshot, {
+    bool invalidateRefresh = true,
+  }) {
+    if (invalidateRefresh) _viewModel.invalidateRefresh();
+    _movementsViewModel.applySnapshot(snapshot);
+    _accountsViewModel.applySnapshot(snapshot);
+    for (final detail in _openAccountViewModels.toList()) {
+      detail.ledger.applySnapshot(snapshot);
+    }
   }
 
   void _selectSection(AppSection section) {
+    if (_viewModel.section == section) return;
     _viewModel.selectSection(section);
     unawaited(_refreshInstallments());
   }
@@ -191,11 +202,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (accountContext == null) {
         _viewModel.selectSection(AppSection.movements);
       }
-      await Future.wait([
-        _accountsViewModel.load(),
-        if (accountContext != null) _movementsViewModel.load(),
-        for (final detail in _openAccountViewModels.toList()) detail.load(),
-      ]);
+      _publishSnapshot(vm.snapshot!);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Movimiento guardado')));
@@ -260,7 +267,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
     );
     if (saved == true && mounted) {
-      if (source != null) await _movementsViewModel.load();
+      _publishSnapshot(vm.snapshot!);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Categoría actualizada')));
@@ -281,8 +288,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
     );
     if (saved == true && mounted) {
-      await _accountsViewModel.load();
-      if (source != null) await _movementsViewModel.load();
+      _publishSnapshot(vm.snapshot!);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Devolución guardada')));
@@ -355,8 +361,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       MaterialPageRoute(builder: (_) => InstallmentFormView(viewModel: form)),
     );
     form.dispose();
-    await accountVM.load();
-    await _refreshInstallments();
+    if (mounted && accountVM.ledger.snapshot != null) {
+      _publishSnapshot(accountVM.ledger.snapshot!);
+    }
   }
 
   Future<void> _openInstallment(
@@ -389,8 +396,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
     );
     vm.dispose();
-    await accountVM.load();
-    await _refreshInstallments();
+    if (mounted && accountVM.ledger.snapshot != null) {
+      _publishSnapshot(accountVM.ledger.snapshot!);
+    }
   }
 
   static const _destinations = [

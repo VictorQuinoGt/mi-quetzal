@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' hide Category;
 
 import '../../data/repositories/movement_repository.dart';
@@ -18,18 +20,38 @@ import '../core/date_input.dart';
 enum MovementsStatus { loading, ready, error }
 
 class MovementsViewModel extends ChangeNotifier {
-  MovementsViewModel(this._repository, {DateTime Function()? now})
-    : _now = now ?? DateTime.now {
+  MovementsViewModel(
+    this._repository, {
+    DateTime Function()? now,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _now = now ?? DateTime.now {
     final date = _now();
     _summaryMonth = DateTime(date.year, date.month);
   }
   final MovementRepository _repository;
   final DateTime Function() _now;
+  final Duration loadTimeout;
   LedgerSnapshot? _snapshot;
   MovementsStatus _status = MovementsStatus.loading;
   bool _saving = false;
   bool _loading = false;
   bool _disposed = false;
+  int _loadGeneration = 0;
+  String? _loadError;
+
+  LedgerSnapshot? get snapshot => _snapshot;
+  String? get loadError => _loadError;
+
+  void applySnapshot(LedgerSnapshot snapshot) {
+    if (_disposed || _saving) return;
+    _loadGeneration++;
+    _loading = false;
+    _loadError = null;
+    _setSnapshot(snapshot);
+    _status = MovementsStatus.ready;
+    _emit();
+  }
+
   Map<String, String> _fieldErrors = const {};
   String? _saveError;
   String _search = '';
@@ -336,18 +358,30 @@ class MovementsViewModel extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (_saving || _loading) return;
+    if (_disposed || _saving || _loading) return;
+    final generation = ++_loadGeneration;
     _loading = true;
-    _status = MovementsStatus.loading;
+    _loadError = null;
+    if (_snapshot == null) _status = MovementsStatus.loading;
     _emit();
     try {
-      _setSnapshot(await _repository.getSnapshot());
+      final snapshot = await _repository.getSnapshot().timeout(loadTimeout);
+      if (_disposed || generation != _loadGeneration) return;
+      _setSnapshot(snapshot);
       _status = MovementsStatus.ready;
-    } catch (_) {
-      _status = MovementsStatus.error;
+    } catch (error) {
+      if (_disposed || generation != _loadGeneration) return;
+      _loadError = error is TimeoutException
+          ? 'La lectura está tardando demasiado. Reintenta actualizar.'
+          : 'No se pudo actualizar el historial. Reintenta actualizar.';
+      _status = _snapshot == null
+          ? MovementsStatus.error
+          : MovementsStatus.ready;
     } finally {
-      _loading = false;
-      _emit();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _emit();
+      }
     }
   }
 
@@ -505,6 +539,10 @@ class MovementsViewModel extends ChangeNotifier {
     _fieldErrors = const {};
     _saveError = null;
     _saving = true;
+    // Un resultado de lectura anterior no puede reemplazar el guardado nuevo.
+    _loadGeneration++;
+    _loading = false;
+    _loadError = null;
     _emit();
     try {
       _setSnapshot(await action());

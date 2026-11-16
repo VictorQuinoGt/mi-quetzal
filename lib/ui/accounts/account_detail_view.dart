@@ -86,6 +86,17 @@ class AccountDetailView extends StatelessWidget {
               ] else if (account == null)
                 const Text('Esta cuenta o tarjeta ya no está disponible.')
               else ...[
+                if (vm.ledger.loadError != null) ...[
+                  Text(
+                    '${vm.ledger.loadError} Se conserva la última información disponible.',
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: vm.load,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   '${debit == null ? account.details.type.label : 'Tarjeta de débito'}${vm.lastFour == null ? '' : ' · •••• ${vm.lastFour}'}',
                   style: theme.textTheme.titleMedium,
