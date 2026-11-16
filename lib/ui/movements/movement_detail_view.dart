@@ -72,8 +72,10 @@ class MovementDetailView extends StatelessWidget {
                 Text(
                   'Referencia vinculada al movimiento ${details.reconciledIntoId}. No vuelve a sumar deuda ni gasto.',
                 ),
+              if (details.isExternalCashPayment)
+                const Text('Origen: Efectivo en agencia'),
               Text(
-                'Cuenta: ${origin.details.name}${origin.details.lastFour == null ? '' : ' · •••• ${origin.details.lastFour}'}',
+                '${details.isExternalCashPayment ? 'Tarjeta' : 'Cuenta'}: ${origin.details.name}${origin.details.lastFour == null ? '' : ' · •••• ${origin.details.lastFour}'}',
               ),
               if (other != null) ...[
                 const SizedBox(height: 8),
@@ -94,9 +96,7 @@ class MovementDetailView extends StatelessWidget {
                   'Débito: ${debitCard.details.name}${debitCard.details.lastFour == null ? '' : ' · •••• ${debitCard.details.lastFour}'}',
                 ),
               ],
-              if (details.isExpense ||
-                  details.isIncome ||
-                  details.isRefund) ...[
+              if (details.supportsCategory || details.isRefund) ...[
                 const SizedBox(height: 16),
                 Text(
                   'Categoría: ${viewModel.categoryById(viewModel.categoryIdFor(current))?.details.name ?? 'Sin categoría'}',
@@ -138,7 +138,9 @@ class MovementDetailView extends StatelessWidget {
               if (details.type == MovementType.transfer ||
                   details.type == MovementType.creditPayment) ...[
                 const SizedBox(height: 16),
-                const Text('Transferencia · No suma ingresos ni gastos'),
+                Text(
+                  '${details.type == MovementType.creditPayment ? 'Pago de tarjeta' : 'Transferencia'} · No suma ingresos ni gastos',
+                ),
               ],
             ],
           ),

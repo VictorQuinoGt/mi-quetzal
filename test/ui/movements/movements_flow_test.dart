@@ -126,7 +126,7 @@ void main() {
       expect(find.text('Cuenta: Banco'), findsOneWidget);
       expect(find.text('Destino: Crédito'), findsOneWidget);
       expect(
-        find.text('Transferencia · No suma ingresos ni gastos'),
+        find.text('Pago de tarjeta · No suma ingresos ni gastos'),
         findsOneWidget,
       );
       expect(movements.stored.single.details.isExpense, isFalse);

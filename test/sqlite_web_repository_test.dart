@@ -1,4 +1,5 @@
 import 'support/migration_expectations.dart';
+import 'support/payment_migration_scenario.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,7 @@ import 'domain/multicurrency_account_test.dart' as multicurrency_tests;
 import 'domain/financial_institution_test.dart' as financial_institution_tests;
 import 'domain/account_activity_test.dart' as account_activity_tests;
 import 'domain/installment_calendar_test.dart' as installment_calendar_tests;
+import 'domain/payment_test.dart' as payment_tests;
 
 import 'package:mi_quetzal/data/repositories/sqlite_installment_repository.dart';
 import 'package:mi_quetzal/domain/models/installment_plan.dart';
@@ -44,7 +46,23 @@ void main() {
     financial_institution_tests.main();
     account_activity_tests.main();
     installment_calendar_tests.main();
+    payment_tests.main();
   }
+  test('SQLite web migra v9 con categorías Pago y efectivo en agencia sin perder historial', () async {
+    final factory = createDatabaseFactoryFfiWeb(
+      options: SqfliteFfiWebOptions(
+        sharedWorkerUri: Uri.parse('/web_assets/sqflite_sw.js'),
+        sqlite3WasmUri: Uri.parse('/web_assets/sqlite3.wasm'),
+        indexedDbName: 'mi_quetzal_browser_tests',
+      ),
+    );
+    final path = 'test_payments_${DateTime.now().microsecondsSinceEpoch}.db';
+    try {
+      await verifyPaymentMigration(factory, path);
+    } finally {
+      await factory.deleteDatabase(path);
+    }
+  }, skip: !kIsWeb);
   test('SQLite web migra v8, recupera cuotas, redondea y concilia sin duplicar al reabrir', () async {
     final factory = createDatabaseFactoryFfiWeb(
       options: SqfliteFfiWebOptions(

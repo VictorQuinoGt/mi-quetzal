@@ -364,37 +364,60 @@ void main() {
     },
   );
 
-  testWidgets('Sin origen compatible no elige otra tarjeta ni mezcla monedas', (
-    tester,
-  ) async {
-    await accounts.createAccount(
-      AccountDetails(
-        name: 'Crédito sin origen USD',
-        type: AccountType.creditCard,
-        openingBalance: Money(1000, Currency.usd),
-        openingDate: DateTime(2026, 10, 1),
-      ),
-    );
-    accounts.stored.removeWhere((a) => a.id == 4);
-    await boot(tester, 5, operation: 'Pago');
-    expect(
-      tester
-          .widget<DropdownButtonFormField<int>>(dropdown('Cuenta de origen'))
-          .initialValue,
-      isNull,
-    );
-    expect(
-      tester
-          .widget<DropdownButtonFormField<int>>(dropdown('Tarjeta de destino'))
-          .initialValue,
-      5,
-    );
-    await fill(tester);
-    await press(tester, find.text('Guardar movimiento'));
-    expect(movements.stored, isEmpty);
-    expect(find.text('Selecciona una cuenta.'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'Sin origen compatible permite efectivo en agencia y conserva la moneda',
+    (tester) async {
+      await accounts.createAccount(
+        AccountDetails(
+          name: 'Crédito sin origen USD',
+          type: AccountType.creditCard,
+          openingBalance: Money(1000, Currency.usd),
+          openingDate: DateTime(2026, 10, 1),
+        ),
+      );
+      accounts.stored.removeWhere((a) => a.id == 4);
+      await boot(tester, 5, operation: 'Pago');
+      expect(dropdown('Cuenta de origen'), findsNothing);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<PaymentFunding>>(
+              find.byType(DropdownButtonFormField<PaymentFunding>),
+            )
+            .initialValue,
+        PaymentFunding.externalCash,
+      );
+      expect(
+        tester
+            .widget<DropdownButtonFormField<int>>(
+              dropdown('Tarjeta de destino'),
+            )
+            .initialValue,
+        5,
+      );
+      await fill(tester);
+      await press(tester, find.text('Guardar movimiento'));
+      final payment = movements.stored.single.details;
+      expect(payment.paymentFunding, PaymentFunding.externalCash);
+      expect(payment.accountId, 5);
+      expect(payment.counterpartyAccountId, isNull);
+      expect(payment.amount.currency, Currency.usd);
+      expect(
+        movements.snapshot.accounts
+            .singleWhere((a) => a.id == 5)
+            .currentBalance
+            .minorUnits,
+        -250,
+      );
+      expect(
+        movements.snapshot.accounts
+            .singleWhere((a) => a.id == 1)
+            .currentBalance
+            .minorUnits,
+        10000,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Un fallo conserva campos y contexto; una escritura bloquea doble envío y volver',

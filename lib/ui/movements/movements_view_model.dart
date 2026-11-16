@@ -306,9 +306,17 @@ class MovementsViewModel extends ChangeNotifier {
   }
 
   ({int? accountId, int? counterpartyId, int? debitCardId, Currency? currency})
-  defaultsFor(MovementType type, AccountDetailTarget? target) {
+  defaultsFor(
+    MovementType type,
+    AccountDetailTarget? target, {
+    PaymentFunding paymentFunding = PaymentFunding.account,
+  }) {
     final account = contextAccountFor(target);
-    final origin = account != null && MovementRules.canBeOrigin(account, type);
+    final origin =
+        account != null &&
+        (type == MovementType.creditPayment &&
+                paymentFunding == PaymentFunding.externalCash ||
+            MovementRules.canBeOrigin(account, type));
     return (
       accountId: origin ? account.id : null,
       counterpartyId: account != null && !origin ? account.id : null,
@@ -404,6 +412,7 @@ class MovementsViewModel extends ChangeNotifier {
     required String description,
     DateTime? date,
     String? dateInput,
+    PaymentFunding paymentFunding = PaymentFunding.account,
   }) async {
     if (_saving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
@@ -420,7 +429,11 @@ class MovementsViewModel extends ChangeNotifier {
         );
       }
       if (target != null) {
-        final defaults = defaultsFor(type, target);
+        final defaults = defaultsFor(
+          type,
+          target,
+          paymentFunding: paymentFunding,
+        );
         if (!operationsFor(target).contains(type) ||
             defaults.accountId != null && defaults.accountId != accountId ||
             defaults.counterpartyId != null &&
@@ -455,6 +468,7 @@ class MovementsViewModel extends ChangeNotifier {
         counterpartyAccountId: counterpartyAccountId,
         debitCardId: debitCardId,
         categoryId: categoryId,
+        paymentFunding: paymentFunding,
         originalMovementId: originalMovementId,
         amount: value,
         date: occurredOn,
@@ -506,12 +520,10 @@ class MovementsViewModel extends ChangeNotifier {
     _saveError = null;
     try {
       final values = movements.where((m) => m.id == movementId);
-      if (values.isEmpty ||
-          !(values.single.details.isExpense ||
-              values.single.details.isIncome)) {
+      if (values.isEmpty || !values.single.details.supportsCategory) {
         throw const MovementValidationException(
           'movement',
-          'Selecciona un ingreso o gasto existente.',
+          'Selecciona un ingreso, gasto o pago existente.',
         );
       }
       MovementRules.effects(

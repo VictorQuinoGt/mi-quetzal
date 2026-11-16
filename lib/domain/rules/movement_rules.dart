@@ -28,7 +28,10 @@ abstract final class MovementRules {
     final byId = {for (final account in accounts) account.id: account};
     if (movement.reconciledIntoId != null) return const {};
     final origin = byId[movement.accountId];
-    if (origin == null || !canBeOrigin(origin, movement.type)) {
+    if (origin == null ||
+        (movement.isExternalCashPayment
+            ? origin.details.type != AccountType.creditCard
+            : !canBeOrigin(origin, movement.type))) {
       throw const MovementValidationException(
         'account',
         'Selecciona una cuenta válida para esta operación.',
@@ -95,6 +98,9 @@ abstract final class MovementRules {
         };
       case MovementType.transfer:
       case MovementType.creditPayment:
+        if (movement.isExternalCashPayment) {
+          return {origin.id: amount.negated};
+        }
         final other = byId[movement.counterpartyAccountId];
         if (other == null || !canBeDestination(other, movement.type)) {
           throw const MovementValidationException(

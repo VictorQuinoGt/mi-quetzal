@@ -113,11 +113,10 @@ class FakeMovementRepository implements MovementRepository {
     if (saveGate != null) await saveGate!.future;
     if (failSave) throw StateError('Fallo de escritura sintético');
     final index = stored.indexWhere((m) => m.id == movementId);
-    if (index < 0 ||
-        !(stored[index].details.isExpense || stored[index].details.isIncome)) {
+    if (index < 0 || !stored[index].details.supportsCategory) {
       throw const MovementValidationException(
         'movement',
-        'Selecciona un ingreso o gasto existente.',
+        'Selecciona un ingreso, gasto o pago existente.',
       );
     }
     final updated = Movement(

@@ -69,7 +69,7 @@ class _CategoriesViewState extends State<CategoriesView> {
             child: PageContent(
               children: [
                 Text(
-                  'Organiza tus ingresos y gastos',
+                  'Organiza tus ingresos, gastos y pagos',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 12),

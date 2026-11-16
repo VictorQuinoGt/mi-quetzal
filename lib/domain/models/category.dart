@@ -1,6 +1,6 @@
 import 'movement.dart';
 
-enum CategoryKind { expense, income }
+enum CategoryKind { expense, income, payment }
 
 final class CategoryValidationException implements Exception {
   const CategoryValidationException(this.field, this.message);
@@ -26,7 +26,8 @@ final class CategoryDetails {
   final CategoryKind kind;
   bool supports(MovementType type) =>
       kind == CategoryKind.expense && type == MovementType.expense ||
-      kind == CategoryKind.income && type == MovementType.income;
+      kind == CategoryKind.income && type == MovementType.income ||
+      kind == CategoryKind.payment && type == MovementType.creditPayment;
 }
 
 final class Category {

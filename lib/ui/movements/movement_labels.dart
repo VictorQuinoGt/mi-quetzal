@@ -1,6 +1,13 @@
 import '../../domain/models/movement.dart';
 
 extension MovementTypeLabel on MovementType {
+  String get marker => switch (this) {
+    MovementType.expense => 'G',
+    MovementType.creditPayment => 'P',
+    MovementType.income => 'I',
+    MovementType.transfer => 'T',
+    MovementType.refund => 'D',
+  };
   String get shortLabel => switch (this) {
     MovementType.expense => 'Gasto',
     MovementType.creditPayment => 'Pago',
@@ -21,7 +28,7 @@ extension MovementTypeLabel on MovementType {
     MovementType.income =>
       'Aumenta el saldo de efectivo o de una cuenta bancaria.',
     MovementType.transfer => 'Mueve fondos entre efectivo y cuentas bancarias de la misma moneda. No es ingreso ni gasto.',
-    MovementType.creditPayment => 'Reduce fondos de origen y deuda de la tarjeta. No es un segundo gasto. Un pago mayor a la deuda deja saldo a favor.',
+    MovementType.creditPayment => 'Reduce la deuda de la tarjeta. Si eliges una cuenta registrada, también descuenta sus fondos. No es un segundo gasto. Un pago mayor a la deuda deja saldo a favor.',
     MovementType.refund => 'Revierte un gasto en la misma cuenta y moneda de la compra. Reduce gastos del mes de la devolución; no es un ingreso.',
   };
 }

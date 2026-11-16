@@ -60,6 +60,7 @@ class SqliteMovementRepository implements MovementRepository {
         'counterparty_account_id': details.counterpartyAccountId,
         'debit_card_id': details.debitCardId,
         'category_id': details.categoryId,
+        'payment_funding': details.paymentFunding.name,
         'original_movement_id': details.originalMovementId,
         'amount_minor': details.amount.minorUnits,
         'currency': details.amount.currency.name,
@@ -92,12 +93,10 @@ class SqliteMovementRepository implements MovementRepository {
       await generateDueInstallments(transaction, _now());
       final previous = await readLedger(transaction);
       final candidates = previous.movements.where((m) => m.id == movementId);
-      if (candidates.isEmpty ||
-          !(candidates.single.details.isExpense ||
-              candidates.single.details.isIncome)) {
+      if (candidates.isEmpty || !candidates.single.details.supportsCategory) {
         throw const MovementValidationException(
           'movement',
-          'Selecciona un ingreso o gasto existente.',
+          'Selecciona un ingreso, gasto o pago existente.',
         );
       }
       final details = candidates.single.details.withCategory(categoryId);

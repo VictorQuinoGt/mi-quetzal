@@ -17,50 +17,24 @@ class MovementRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = movement.details;
     final theme = Theme.of(context);
-    final icon = switch (data.type) {
-      MovementType.expense => Icons.shopping_bag_outlined,
-      MovementType.income => Icons.south_west,
-      MovementType.transfer => Icons.swap_horiz,
-      MovementType.creditPayment => Icons.credit_score_outlined,
-      MovementType.refund => Icons.undo,
-    };
     final date = MaterialLocalizations.of(context).formatMediumDate(data.date);
     final secondary =
-        '$date · ${category ?? (data.isExpense || data.isIncome || data.isRefund ? 'Sin categoría' : data.type.label)}';
+        '$date${data.supportsCategory || data.isRefund ? ' · ${category ?? 'Sin categoría'}' : ''}';
     return Semantics(
       button: true,
-      label: 'Abrir movimiento: ${data.description}',
+      label: '${data.operationLabel}. Abrir movimiento: ${data.description}',
       child: InkWell(
         key: ValueKey('movement-${movement.id}'),
         onTap: onDetails,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final description = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.description,
-                    style: theme.textTheme.titleSmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(secondary, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    children: [
-                      Icon(icon, size: 16, color: theme.colorScheme.primary),
-                      Text(
-                        data.operationLabel,
-                        style: theme.textTheme.labelSmall,
-                      ),
-                    ],
-                  ),
-                ],
+              final description = Text(
+                data.description,
+                style: theme.textTheme.titleSmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               );
               final amount = Text(
                 data.amount.formatted,
@@ -71,31 +45,63 @@ class MovementRow extends StatelessWidget {
                 key: ValueKey('movement-detail-${movement.id}'),
                 onPressed: onDetails,
                 tooltip: 'Abrir movimiento: ${data.description}',
-                icon: const Icon(Icons.chevron_right),
+                icon: Tooltip(
+                  message: data.operationLabel,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      data.type.marker,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                ),
               );
-              if (constraints.maxWidth >= 480 &&
-                  MediaQuery.textScalerOf(context).scale(14) <= 21) {
-                return Row(
-                  children: [
-                    Expanded(child: description),
-                    const SizedBox(width: 12),
-                    Flexible(child: amount),
-                    open,
-                  ],
-                );
-              }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(child: description),
                       open,
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerRight, child: amount),
+                  if (constraints.maxWidth >= 300 &&
+                      MediaQuery.textScalerOf(context).scale(14) <= 20)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            secondary,
+                            style: theme.textTheme.bodySmall,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * .55,
+                          ),
+                          child: amount,
+                        ),
+                      ],
+                    )
+                  else ...[
+                    Text(secondary, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Align(alignment: Alignment.centerRight, child: amount),
+                  ],
+                  const SizedBox(height: 4),
                 ],
               );
             },

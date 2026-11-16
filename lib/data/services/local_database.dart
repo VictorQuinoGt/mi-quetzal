@@ -1,10 +1,12 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common/sqlite_api.dart';
 
+import 'payment_migration.dart';
+
 class LocalDatabase {
   LocalDatabase({required this.factory, this.path, this.singleInstance = true});
 
-  static const schemaVersion = 9;
+  static const schemaVersion = 10;
   final DatabaseFactory factory;
   final String? path;
   final bool singleInstance;
@@ -21,7 +23,13 @@ class LocalDatabase {
         options: OpenDatabaseOptions(
           singleInstance: singleInstance,
           version: schemaVersion,
-          onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+          onConfigure: (db) async {
+            final version = await db.getVersion();
+            await db.execute(
+              'PRAGMA foreign_keys = ${version > 0 && version < 10 ? 'OFF' : 'ON'}',
+            );
+          },
+          onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
           onCreate: (db, version) => migrate(db, 0, version),
           onUpgrade: migrate,
           onDowngrade: (db, oldVersion, newVersion) async {
@@ -231,6 +239,7 @@ class LocalDatabase {
         BEGIN SELECT RAISE(ABORT, 'La categoría está vinculada a cuotas'); END''',
       );
     }
+    if (from < 10 && to >= 10) await migratePaymentSupport(db);
   }
 
   static Future<void> _addRefunds(Database db) async {

@@ -115,28 +115,21 @@ void main() {
     },
   );
 
-  test(
-    'Rechaza categorías inexistentes, incompatibles y asignadas a pagos',
-    () {
-      for (final invalid in [
-        item(1, MovementType.expense, 1, 100, category: 2),
-        item(1, MovementType.income, 1, 100, category: 1),
-        item(1, MovementType.expense, 1, 100, category: 99),
-      ]) {
-        expect(
-          () => LedgerSnapshot.calculate(accounts, [
-            invalid,
-          ], categories: categories),
-          throwsA(isA<MovementValidationException>()),
-        );
-      }
+  test('Rechaza categorías inexistentes o de otro tipo, también en pagos', () {
+    for (final invalid in [
+      item(1, MovementType.expense, 1, 100, category: 2),
+      item(1, MovementType.income, 1, 100, category: 1),
+      item(1, MovementType.expense, 1, 100, category: 99),
+      item(1, MovementType.creditPayment, 1, 100, other: 3, category: 1),
+    ]) {
       expect(
-        () =>
-            item(1, MovementType.creditPayment, 1, 100, other: 3, category: 1),
+        () => LedgerSnapshot.calculate(accounts, [
+          invalid,
+        ], categories: categories),
         throwsA(isA<MovementValidationException>()),
       );
-    },
-  );
+    }
+  });
 
   test(
     'Cambiar categoría conserva todos los datos financieros del movimiento',
@@ -235,31 +228,28 @@ void main() {
     );
   });
 
-  test(
-    'Filtra categoría y sin categoría excluyendo transferencias y pagos',
-    () {
-      expect(MovementFilter(categoryId: 1).apply(entries).map((m) => m.id), [
-        4,
-        5,
-      ]);
-      expect(
-        MovementFilter(uncategorizedOnly: true).apply(entries).map((m) => m.id),
-        [1, 3, 8, 9],
-      );
-      expect(
-        () => MovementFilter(categoryId: 1, uncategorizedOnly: true),
-        throwsArgumentError,
-      );
-      expect(
-        MonthlySummary.calculate(
-          ledger(),
-          2026,
-          11,
-        ).currencies.first.expense.minorUnits,
-        725,
-      );
-    },
-  );
+  test('Filtra categoría y sin categoría incluyendo pagos y excluyendo transferencias', () {
+    expect(MovementFilter(categoryId: 1).apply(entries).map((m) => m.id), [
+      4,
+      5,
+    ]);
+    expect(
+      MovementFilter(uncategorizedOnly: true).apply(entries).map((m) => m.id),
+      [1, 3, 6, 8, 9],
+    );
+    expect(
+      () => MovementFilter(categoryId: 1, uncategorizedOnly: true),
+      throwsArgumentError,
+    );
+    expect(
+      MonthlySummary.calculate(
+        ledger(),
+        2026,
+        11,
+      ).currencies.first.expense.minorUnits,
+      725,
+    );
+  });
 
   test(
     'Totales fuera de rango fallan explícitamente sin redondear en JS o Dart',

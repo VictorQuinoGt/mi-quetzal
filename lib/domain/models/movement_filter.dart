@@ -60,7 +60,7 @@ final class MovementFilter {
             (categoryId == null || effectiveCategory == categoryId) &&
             (!uncategorizedOnly ||
                 effectiveCategory == null &&
-                    (data.isExpense || data.isIncome || data.isRefund)) &&
+                    (data.supportsCategory || data.isRefund)) &&
             (from == null || !data.date.isBefore(from!)) &&
             (to == null || !data.date.isAfter(to!));
       }),

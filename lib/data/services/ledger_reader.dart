@@ -78,6 +78,9 @@ Future<LedgerSnapshot> readLedger(DatabaseExecutor db) async {
             reconciled: reconciliations.any(
               (r) => r['target_movement_id'] == row['id'],
             ),
+            paymentFunding: PaymentFunding.values.byName(
+              row['payment_funding'] as String? ?? 'account',
+            ),
             amount: Money(
               row['amount_minor'] as int,
               Currency.values.byName(row['currency'] as String),

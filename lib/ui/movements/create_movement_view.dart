@@ -34,6 +34,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   int? _debitCardId;
   int? _categoryId;
   Currency? _currency;
+  PaymentFunding _paymentFunding = PaymentFunding.account;
   @override
   void initState() {
     super.initState();
@@ -42,13 +43,27 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   }
 
   void _selectOperation(MovementType type) {
-    final defaults = widget.viewModel.defaultsFor(type, widget.target);
+    final funding =
+        type == MovementType.creditPayment &&
+            widget.viewModel.originsFor(type, target: widget.target).isEmpty
+        ? PaymentFunding.externalCash
+        : PaymentFunding.account;
+    _setPaymentFunding(type, funding);
+    _categoryId = null;
+  }
+
+  void _setPaymentFunding(MovementType type, PaymentFunding funding) {
+    final defaults = widget.viewModel.defaultsFor(
+      type,
+      widget.target,
+      paymentFunding: funding,
+    );
     _type = type;
+    _paymentFunding = funding;
     _accountId = defaults.accountId;
     _counterpartyId = defaults.counterpartyId;
     _debitCardId = defaults.debitCardId;
     _currency = defaults.currency;
-    _categoryId = null;
   }
 
   @override
@@ -72,6 +87,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       description: _description.text,
       dateInput: _dateInput.text,
       target: widget.target,
+      paymentFunding: _paymentFunding,
     );
     if (saved && mounted) Navigator.of(context).pop(true);
   }
@@ -110,14 +126,29 @@ class _CreateMovementViewState extends State<CreateMovementView> {
           ),
         );
       }
-      final defaults = vm.defaultsFor(_type, widget.target);
+      final externalCash =
+          _type == MovementType.creditPayment &&
+          _paymentFunding == PaymentFunding.externalCash;
+      final defaults = vm.defaultsFor(
+        _type,
+        widget.target,
+        paymentFunding: _paymentFunding,
+      );
       final lockedOrigin = defaults.accountId != null;
-      final lockedDestination = defaults.counterpartyId != null;
+      final lockedDestination = externalCash
+          ? defaults.accountId != null
+          : defaults.counterpartyId != null;
       final needsOther =
           _type == MovementType.transfer || _type == MovementType.creditPayment;
       final origins = vm.originsFor(_type, target: widget.target);
       final destinations = lockedDestination
           ? [contextAccount!]
+          : externalCash
+          ? vm.accounts
+                .where(
+                  (account) => account.details.type == AccountType.creditCard,
+                )
+                .toList()
           : vm.destinationsFor(_type, _accountId);
       final selectedAccount = vm.accountById(_accountId);
       final currencies =
@@ -173,44 +204,80 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                   ),
                   const SizedBox(height: 20),
                 ],
-                DropdownButtonFormField<int>(
-                  key: ValueKey('origin-${_type.name}'),
-                  initialValue: _accountId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: _type == MovementType.income
-                        ? 'Cuenta receptora'
-                        : _type == MovementType.expense
-                        ? 'Cuenta o tarjeta'
-                        : 'Cuenta de origen',
-                    errorText: vm.fieldErrors['account'],
-                    errorMaxLines: 3,
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    for (final account in origins)
+                if (_type == MovementType.creditPayment &&
+                    (contextAccount == null ||
+                        contextAccount.details.type ==
+                            AccountType.creditCard)) ...[
+                  DropdownButtonFormField<PaymentFunding>(
+                    initialValue: _paymentFunding,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Forma de pago',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
                       DropdownMenuItem(
-                        value: account.id,
-                        child: Text(
-                          '${account.identification} · ${account.details.openingBalances.map((m) => m.currency.code).join(' / ')}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        value: PaymentFunding.account,
+                        child: Text('Desde una cuenta'),
                       ),
+                      DropdownMenuItem(
+                        value: PaymentFunding.externalCash,
+                        child: Text('Efectivo en agencia'),
+                      ),
+                    ],
+                    onChanged: vm.isSaving
+                        ? null
+                        : (funding) => setState(
+                            () => _setPaymentFunding(_type, funding!),
+                          ),
+                  ),
+                  if (externalCash) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Reduce la deuda de la tarjeta sin descontar una cuenta registrada.',
+                    ),
                   ],
-                  onChanged: vm.isSaving || lockedOrigin
-                      ? null
-                      : (id) => setState(() {
-                          _accountId = id;
-                          _counterpartyId = defaults.counterpartyId;
-                          _debitCardId = null;
-                          _currency = vm
-                              .accountById(id)
-                              ?.details
-                              .openingBalance
-                              .currency;
-                        }),
-                ),
+                  const SizedBox(height: 20),
+                ],
+                if (!externalCash)
+                  DropdownButtonFormField<int>(
+                    key: ValueKey('origin-${_type.name}'),
+                    initialValue: _accountId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: _type == MovementType.income
+                          ? 'Cuenta receptora'
+                          : _type == MovementType.expense
+                          ? 'Cuenta o tarjeta'
+                          : 'Cuenta de origen',
+                      errorText: vm.fieldErrors['account'],
+                      errorMaxLines: 3,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final account in origins)
+                        DropdownMenuItem(
+                          value: account.id,
+                          child: Text(
+                            '${account.identification} · ${account.details.openingBalances.map((m) => m.currency.code).join(' / ')}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: vm.isSaving || lockedOrigin
+                        ? null
+                        : (id) => setState(() {
+                            _accountId = id;
+                            _counterpartyId = defaults.counterpartyId;
+                            _debitCardId = null;
+                            _currency = vm
+                                .accountById(id)
+                                ?.details
+                                .openingBalance
+                                .currency;
+                          }),
+                  ),
                 if (currencies.length > 1) ...[
                   const SizedBox(height: 20),
                   DropdownButtonFormField<Currency>(
@@ -269,7 +336,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                     'El gasto se descuenta una sola vez de la cuenta bancaria seleccionada.',
                   ),
                 ],
-                if (origins.isEmpty) ...[
+                if (!externalCash && origins.isEmpty) ...[
                   const SizedBox(height: 8),
                   const Text(
                     'Necesitas una cuenta de efectivo o bancaria para esta operación.',
@@ -278,14 +345,19 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                 if (needsOther) ...[
                   const SizedBox(height: 20),
                   DropdownButtonFormField<int>(
-                    key: ValueKey('destination-${_type.name}-$_accountId'),
-                    initialValue: _counterpartyId,
+                    key: ValueKey(
+                      'destination-${_type.name}-$_accountId-${_paymentFunding.name}',
+                    ),
+                    initialValue: externalCash ? _accountId : _counterpartyId,
                     isExpanded: true,
                     decoration: InputDecoration(
                       labelText: _type == MovementType.creditPayment
                           ? 'Tarjeta de destino'
                           : 'Cuenta de destino',
-                      errorText: vm.fieldErrors['counterparty'],
+                      errorText:
+                          vm.fieldErrors[externalCash
+                              ? 'account'
+                              : 'counterparty'],
                       errorMaxLines: 3,
                       border: const OutlineInputBorder(),
                     ),
@@ -301,9 +373,22 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                         ),
                     ],
                     onChanged:
-                        vm.isSaving || _accountId == null || lockedDestination
+                        vm.isSaving ||
+                            !externalCash && _accountId == null ||
+                            lockedDestination
                         ? null
-                        : (id) => setState(() => _counterpartyId = id),
+                        : (id) => setState(() {
+                            if (externalCash) {
+                              _accountId = id;
+                              _currency = vm
+                                  .accountById(id)
+                                  ?.details
+                                  .openingBalance
+                                  .currency;
+                            } else {
+                              _counterpartyId = id;
+                            }
+                          }),
                   ),
                   if (_accountId != null && destinations.isEmpty) ...[
                     const SizedBox(height: 8),
@@ -327,7 +412,8 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                 ),
                 const SizedBox(height: 20),
                 if (_type == MovementType.expense ||
-                    _type == MovementType.income) ...[
+                    _type == MovementType.income ||
+                    _type == MovementType.creditPayment) ...[
                   if (vm.categoriesFor(_type).isNotEmpty)
                     DropdownButtonFormField<int>(
                       key: ValueKey('movement-category-${_type.name}'),

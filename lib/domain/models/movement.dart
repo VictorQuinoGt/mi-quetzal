@@ -4,6 +4,8 @@ enum MovementType { expense, income, transfer, creditPayment, refund }
 
 enum MovementOrigin { manual, installmentCharge, installmentConversion }
 
+enum PaymentFunding { account, externalCash }
+
 final class MovementValidationException implements Exception {
   const MovementValidationException(this.field, this.message);
   final String field;
@@ -26,6 +28,7 @@ final class MovementDetails {
     int? recognizedExpenseMinor,
     int? reconciledIntoId,
     bool reconciled = false,
+    PaymentFunding paymentFunding = PaymentFunding.account,
     required Money amount,
     required DateTime date,
     required String description,
@@ -69,8 +72,17 @@ final class MovementDetails {
         'El importe debe ser mayor que cero.',
       );
     }
+    if (paymentFunding != PaymentFunding.account &&
+        type != MovementType.creditPayment) {
+      throw const MovementValidationException(
+        'paymentFunding',
+        'La forma de pago solo se aplica a pagos de tarjeta.',
+      );
+    }
     final needsOther =
-        type == MovementType.transfer || type == MovementType.creditPayment;
+        type == MovementType.transfer ||
+        type == MovementType.creditPayment &&
+            paymentFunding == PaymentFunding.account;
     if ((type == MovementType.refund) != (originalMovementId != null) ||
         (originalMovementId != null && originalMovementId <= 0)) {
       throw const MovementValidationException(
@@ -98,10 +110,11 @@ final class MovementDetails {
     }
     if (categoryId != null &&
         type != MovementType.expense &&
-        type != MovementType.income) {
+        type != MovementType.income &&
+        type != MovementType.creditPayment) {
       throw const MovementValidationException(
         'category',
-        'Las categorías se aplican a ingresos y gastos, no a transferencias o pagos.',
+        'Las categorías se aplican a ingresos, gastos y pagos, no a transferencias o devoluciones.',
       );
     }
     return MovementDetails._(
@@ -120,6 +133,7 @@ final class MovementDetails {
       recognizedExpenseMinor: recognizedExpenseMinor,
       reconciledIntoId: reconciledIntoId,
       reconciled: reconciled,
+      paymentFunding: paymentFunding,
     );
   }
   const MovementDetails._({
@@ -138,6 +152,7 @@ final class MovementDetails {
     required this.recognizedExpenseMinor,
     required this.reconciledIntoId,
     required this.reconciled,
+    required this.paymentFunding,
   });
   final MovementType type;
   final int accountId;
@@ -154,6 +169,12 @@ final class MovementDetails {
   final int? recognizedExpenseMinor;
   final int? reconciledIntoId;
   final bool reconciled;
+  final PaymentFunding paymentFunding;
+  bool get isExternalCashPayment =>
+      type == MovementType.creditPayment &&
+      paymentFunding == PaymentFunding.externalCash;
+  bool get supportsCategory =>
+      isExpense || isIncome || type == MovementType.creditPayment;
   bool get isGenerated => origin != MovementOrigin.manual;
   bool get isExpense =>
       type == MovementType.expense &&
@@ -177,6 +198,7 @@ final class MovementDetails {
     recognizedExpenseMinor: recognizedExpenseMinor,
     reconciledIntoId: reconciledIntoId,
     reconciled: reconciled,
+    paymentFunding: paymentFunding,
     amount: amount,
     date: date,
     description: description,
