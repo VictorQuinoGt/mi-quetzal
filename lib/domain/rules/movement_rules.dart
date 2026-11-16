@@ -41,12 +41,6 @@ abstract final class MovementRules {
           'Las cuentas deben usar la misma moneda. Las conversiones aún no están disponibles.',
         );
       }
-      if (movement.date.isBefore(account.details.openingDate)) {
-        throw const MovementValidationException(
-          'date',
-          'La fecha no puede ser anterior al saldo inicial de las cuentas involucradas.',
-        );
-      }
     }
 
     validateAccount(origin);

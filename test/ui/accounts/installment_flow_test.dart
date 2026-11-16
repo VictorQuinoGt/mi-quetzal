@@ -30,9 +30,9 @@ Future<void> settle(WidgetTester tester) async {
 
 Future<void> press(WidgetTester tester, Finder finder) async {
   FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pumpAndSettle();
+  await settle(tester);
   await tester.ensureVisible(finder);
-  await tester.pumpAndSettle();
+  await settle(tester);
   await tester.runAsync(() async {
     await tester.tap(finder);
     await Future<void>.delayed(const Duration(milliseconds: 100));

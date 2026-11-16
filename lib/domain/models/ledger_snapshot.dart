@@ -23,6 +23,8 @@ final class LedgerSnapshot {
       card.details.validateAccount(accounts);
       card.details.validateFinancialInstitution(financialInstitutions);
     }
+    // El saldo inicial es la base de todo el historial. Su fecha de registro
+    // no impide incorporar movimientos históricos anteriores al alta.
     final balances = {
       for (final account in accounts)
         for (final balance in account.details.openingBalances)

@@ -238,12 +238,6 @@ void main() {
           1,
           date: DateTime(2026, 11, 3),
         ),
-        operation(
-          MovementType.expense,
-          bank.id,
-          1,
-          date: DateTime(2026, 9, 30),
-        ),
         operation(MovementType.expense, 999, 1),
       ]) {
         await expectLater(

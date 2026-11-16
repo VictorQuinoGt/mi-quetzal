@@ -22,7 +22,8 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Tarjetas compactas que se abren completas al tocar: alias, entidad configurada, tipo, terminación y una etiqueta de importes por cuenta, con GTQ/USD separados.
 - Detalle propio por identificador de cuenta o tarjeta, con edición, datos completos y movimientos por mes calendario, independiente de los filtros globales.
 - El botón «+» del detalle permite elegir la operación antes de abrir el formulario con la cuenta fija. En crédito muestra «Gasto» o «Pago», con la tarjeta como destino de pagos y origen de fondos explícito; en débito conserva tarjeta y banco vinculado para gastos. Banco/efectivo ofrecen también ingreso y transferencia. Guardar regresa al mismo detalle, mantiene el período y actualiza saldos, listado e historial general.
-- Formulario de movimiento compacto, con «Fecha del movimiento» editable en formato dd/mm/yyyy y calendario en el mismo campo. Valida días reales, años bisiestos, fecha de apertura y fechas futuras.
+- Formulario de movimiento compacto, con «Fecha del movimiento» editable en formato dd/mm/yyyy y calendario en el mismo campo. Permite movimientos históricos anteriores al alta de la cuenta; valida días reales, años bisiestos y fechas futuras. El saldo inicial se conserva como base de todo el historial.
+- Icono propio en Android y web a partir de la imagen financiera proporcionada, con variantes por densidad e icono adaptable para Android.
 - Resumen de crédito compacto con deuda Q/US$, Fecha corte/Fecha pago en dd/MM, límite y disponible en quetzales, y equivalente del disponible en USD a Q 7.80 por US$ 1; pestañas Movimientos y Cuotas.
 - Compras en cuotas con calendario previo, planes iniciados, cargos mensuales recuperables, edición futura, cancelación y conciliación explícita. Consultar [gestión de cuotas](docs/cuotas.md).
 - Movimientos con descripción, fecha/categoría, tipo con texto/ícono e importe; tocar la fila o su flecha abre el detalle y las acciones de categorizar/devolver.
@@ -43,6 +44,8 @@ Cuentas muestra una sola etiqueta: «Deuda actual» para crédito, «Saldo dispo
 ## Desarrollo
 
 La preferencia de apariencia utiliza `shared_preferences` con su API `SharedPreferencesAsync` (Android y web), separada de SQLite y sin modificar datos financieros. Si no se puede leer, se usa Sistema; si falla el guardado, se restaura la selección anterior y se ofrece un mensaje para reintentar.
+
+La imagen original del icono está en `assets/branding/app_icon.png`. En Windows, `./tool/generate_app_icons.ps1` regenera los PNG de Android, su primer plano adaptable, los iconos web y el favicon, conservando la imagen completa y sus márgenes. No requiere dependencias adicionales.
 
 - Flutter con soporte Android. Entorno revisado: Flutter 3.47.0 / Dart 3.13.0.
 - Restricción Dart actual: `^3.13.0` en `pubspec.yaml`.
@@ -86,7 +89,7 @@ También se puede dejar vacío el límite cuando no se conoce. El saldo bancario
 
 Para comprobar la migración, instalar la nueva APK como actualización sobre la anterior, sin desinstalar ni borrar datos. La compilación se realiza con `flutter build apk --debug`.
 
-Usar cuentas sintéticas en GTQ con fecha de apertura anterior o igual a los movimientos:
+Usar cuentas sintéticas en GTQ. Se admiten movimientos anteriores a la fecha de alta:
 
 1. Crear «Banco de prueba» con saldo `1000`, «Efectivo de prueba» con `0` y «Crédito de prueba» con deuda `0`.
 2. Pulsar «Registrar», elegir compra/gasto en crédito y guardar `50`. La deuda debe ser `GTQ 50.00`.
@@ -95,7 +98,7 @@ Usar cuentas sintéticas en GTQ con fecha de apertura anterior o igual a los mov
 5. Registrar una compra de `10` desde efectivo y un ingreso de `25` al banco: efectivo `GTQ 90.00` y banco `GTQ 905.00`.
 6. Cerrar y volver a abrir la app. Cuentas e historial deben conservarse. Los saldos iniciales permanecen visibles e intactos.
 
-Las operaciones requieren importe positivo y fecha entre la apertura de las cuentas involucradas y hoy. Las operaciones de un mismo día se ordenan por registro. El efectivo no puede ser negativo en ningún punto del historial; las cuentas bancarias admiten sobregiro. Las transferencias y pagos requieren origen/destino conocidos, distintos y de la misma moneda. No se agregan ni convierten GTQ y USD.
+Las operaciones requieren importe positivo y fecha válida no futura. La fecha de alta no limita el histórico: el saldo inicial se aplica como punto de partida a todos los movimientos ordenados por fecha. Al cargar un histórico, el saldo inicial debe representar la base anterior a esas operaciones, para no repetir importes que ya incluya. Las operaciones de un mismo día se ordenan por registro. El efectivo no puede ser negativo en ningún punto del historial; las cuentas bancarias admiten sobregiro. Las transferencias y pagos requieren origen/destino conocidos, distintos y de la misma moneda. No se agregan ni convierten GTQ y USD.
 
 El registro de pagos con origen desconocido se abordará con la importación y conciliación. Por ahora, el formulario exige una cuenta de origen. Una transferencia o pago se guarda como una sola operación vinculada; si la escritura o la validación del historial falla, se revierte todo. Las compras legítimas repetidas mantienen identidades diferentes.
 
@@ -246,6 +249,6 @@ El esquema actual es versión 9: planes, cuotas, revisiones y conciliaciones se 
 
 ## Próximo incremento
 
-Incorporar conciliación e importación validada. No cargar históricos reales antes de implementar y comprobar su importación.
+Incorporar conciliación e importación validada. No importar archivos históricos reales antes de implementar y comprobar su importación.
 
-El applicationId `com.example.mi_quetzal`, nombre Android de plantilla y firma release quedan pendientes antes de distribuir.
+El applicationId `com.example.mi_quetzal` y la firma release quedan pendientes antes de distribuir. El nombre visible de Android es «Mi Quetzal».

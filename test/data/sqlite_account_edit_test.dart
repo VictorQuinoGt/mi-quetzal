@@ -165,38 +165,45 @@ void main() {
     expect(after.secondaryCurrentBalance!.minorUnits, 6200);
     expect(after.details.secondaryCreditLimit!.minorUnits, 200000);
   });
-  test('Fecha incompatible, futuro, moneda con historial y efectivo negativo revierten edición', () async {
-    final card = await accounts.createAccount(details(secondary: 2000));
-    await record(card.id, Currency.usd, 100);
-    for (final candidate in [
-      details(secondary: 2000, date: today),
-      details(secondary: 2000, date: DateTime(2026, 11, 3)),
-      details(),
-    ]) {
+  test(
+    'Futuro, moneda con historial y efectivo negativo revierten edición',
+    () async {
+      final card = await accounts.createAccount(details(secondary: 2000));
+      await record(card.id, Currency.usd, 100);
+      for (final candidate in [
+        details(secondary: 2000, date: DateTime(2026, 11, 3)),
+        details(),
+      ]) {
+        await expectLater(
+          accounts.updateAccount(card.id, candidate),
+          throwsArgumentError,
+        );
+        expect(
+          (await accounts.getAccounts())
+              .single
+              .details
+              .secondaryOpeningBalance!
+              .minorUnits,
+          2000,
+        );
+      }
+      final cash = await accounts.createAccount(
+        details(type: AccountType.cash),
+      );
+      await record(cash.id, Currency.gtq, 900);
       await expectLater(
-        accounts.updateAccount(card.id, candidate),
+        accounts.updateAccount(
+          cash.id,
+          details(type: AccountType.cash, opening: 899),
+        ),
         throwsArgumentError,
       );
       expect(
-        (await accounts.getAccounts())
-            .single
-            .details
-            .secondaryOpeningBalance!
-            .minorUnits,
-        2000,
+        (await accounts.getAccounts()).last.currentBalance.minorUnits,
+        100,
       );
-    }
-    final cash = await accounts.createAccount(details(type: AccountType.cash));
-    await record(cash.id, Currency.gtq, 900);
-    await expectLater(
-      accounts.updateAccount(
-        cash.id,
-        details(type: AccountType.cash, opening: 899),
-      ),
-      throwsArgumentError,
-    );
-    expect((await accounts.getAccounts()).last.currentBalance.minorUnits, 100);
-  });
+    },
+  );
   test('Editar banco actualiza tipo y saldo compartido sin duplicar fondos de débito', () async {
     final bank = await accounts.createAccount(
       details(type: AccountType.bank, bankType: BankAccountType.monetary),
@@ -256,6 +263,32 @@ void main() {
       'Débito sintético',
     );
   });
+  test(
+    'Cambiar la fecha de registro conserva movimientos anteriores y saldos',
+    () async {
+      final card = await accounts.createAccount(details(secondary: 2000));
+      await record(card.id, Currency.usd, 100);
+      final updated = await accounts.updateAccount(
+        card.id,
+        details(secondary: 2000, date: today),
+      );
+      expect(updated.details.openingDate, today);
+      expect(updated.secondaryCurrentBalance!.minorUnits, 2100);
+      expect(
+        (await movements.getSnapshot()).movements.single.details.date,
+        DateTime(2026, 11, 1),
+      );
+      await database.close();
+      expect(
+        (await accounts.getAccounts())
+            .single
+            .secondaryCurrentBalance!
+            .minorUnits,
+        2100,
+      );
+    },
+  );
+
   test('SQL rechaza tipo bancario o segunda deuda incompatible', () async {
     final card = await accounts.createAccount(details());
     final bank = await accounts.createAccount(details(type: AccountType.bank));

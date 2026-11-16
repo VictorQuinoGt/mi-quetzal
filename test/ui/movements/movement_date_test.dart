@@ -74,14 +74,23 @@ void main() {
     expect(repository.stored.single.details.date, DateTime(2026, 11, 10));
   });
 
+  test('Fechas inválidas o futuras no escriben', () async {
+    for (final text in ['31/02/2026', '', '16/11/2026']) {
+      expect(await save(text), isFalse, reason: text);
+      expect(vm.fieldErrors, contains('date'));
+    }
+    expect(repository.createCalls, 0);
+  });
+
   test(
-    'Fechas inválidas, futuras o anteriores a la apertura no escriben',
+    'Permite fecha manual anterior al alta sin alterar el saldo inicial',
     () async {
-      for (final text in ['31/02/2026', '', '16/11/2026', '30/09/2026']) {
-        expect(await save(text), isFalse, reason: text);
-        expect(vm.fieldErrors, contains('date'));
-      }
-      expect(repository.createCalls, 0);
+      expect(await save('30/09/2026'), isTrue);
+      expect(repository.stored.single.details.date, DateTime(2026, 9, 30));
+      final account = repository.snapshot.accounts.single;
+      expect(account.details.openingDate, DateTime(2026, 10, 1));
+      expect(account.details.openingBalance.minorUnits, 10000);
+      expect(account.currentBalance.minorUnits, 9875);
     },
   );
 

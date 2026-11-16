@@ -153,37 +153,39 @@ void main() {
     );
   });
 
-  test(
-    'No permite operaciones anteriores a la apertura ni futuras al registrar',
-    () {
-      final old = sampleMovement(
-        1,
-        MovementType.expense,
-        1,
-        1,
-        date: DateTime(2026, 9, 30),
-      );
-      expect(
-        () => LedgerSnapshot.calculate(accounts, [old]),
-        throwsA(isA<MovementValidationException>()),
-      );
-      final future = sampleMovement(
-        1,
-        MovementType.expense,
-        1,
-        1,
-        date: DateTime(2026, 11, 3),
-      );
-      expect(
-        () => MovementRules.validateRegistration(
-          future.details,
-          accounts,
-          DateTime(2026, 11, 2),
-        ),
-        throwsA(isA<MovementValidationException>()),
-      );
-    },
-  );
+  test('Permite operaciones históricas anteriores al alta y rechaza fechas futuras', () {
+    final old = sampleMovement(
+      1,
+      MovementType.expense,
+      1,
+      1,
+      date: DateTime(2026, 9, 30),
+    );
+    MovementRules.validateRegistration(
+      old.details,
+      accounts,
+      DateTime(2026, 11, 2),
+    );
+    expect(
+      balance(LedgerSnapshot.calculate(accounts, [old]), 1),
+      accounts.first.currentBalance.minorUnits - 1,
+    );
+    final future = sampleMovement(
+      1,
+      MovementType.expense,
+      1,
+      1,
+      date: DateTime(2026, 11, 3),
+    );
+    expect(
+      () => MovementRules.validateRegistration(
+        future.details,
+        accounts,
+        DateTime(2026, 11, 2),
+      ),
+      throwsA(isA<MovementValidationException>()),
+    );
+  });
 
   test('Valida efectivo cronológicamente incluso al insertar movimientos retroactivos', () {
     final cash = [sampleAccount(1, AccountType.cash, 100)];

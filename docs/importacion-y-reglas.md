@@ -44,7 +44,7 @@ Conservar etiquetas originales y proponer acentuación como normalización de ca
 
 Si un pago aparece en ambas fuentes, vincular sus registros a una sola transferencia. Si falta la cuenta de origen, registrar solo la cara conocida y marcar vinculación pendiente. No inventar una salida ni borrar el abono. Conciliar sin exigir contraparte para todo el histórico.
 
-Registrar saldo o deuda inicial con fecha anterior al primer movimiento importado y contrastar con estados de cuenta. Un histórico incompleto no permite reconstruir saldos definitivos. El límite de crédito no es dinero disponible.
+Registrar saldo o deuda inicial como base anterior al histórico y contrastar con estados de cuenta. La fecha de alta de la cuenta no limita el registro de movimientos anteriores; el cálculo parte del importe inicial y aplica todo el historial cronológicamente. No se ajusta automáticamente el saldo inicial al incorporar movimientos antiguos: debe evitarse registrar de nuevo operaciones ya incluidas en ese importe. Un histórico incompleto no permite reconstruir saldos definitivos. El límite de crédito no es dinero disponible.
 
 Una misma tarjeta de crédito puede mantener deuda, apertura y límite independientes en GTQ y USD. Cada movimiento conserva su moneda y afecta solo ese saldo; pagar USD no reduce deuda GTQ. La segunda apertura sin registrar no equivale a cero. Monetario/Ahorro identifica el tipo de cuenta bancaria, no su moneda. Editar una apertura exige validar nuevamente todo el historial sin alterar los movimientos originales.
 

@@ -315,7 +315,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                   ],
                   const SizedBox(height: 16),
                   const Text(
-                    'El saldo inicial no se registra como ingreso ni gasto.',
+                    'El saldo inicial es el punto de partida de todo el historial; '
+                    'no es un ingreso ni un gasto.',
                   ),
                   if (vm.fieldErrors['openingDate'] case final String error)
                     Text(

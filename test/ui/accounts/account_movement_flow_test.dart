@@ -456,4 +456,31 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'Registra desde crédito una fecha anterior al alta y la muestra en su mes',
+    (tester) async {
+      await boot(tester, 2);
+      await fill(tester);
+      await tester.ensureVisible(field('Fecha del movimiento'));
+      await tester.enterText(field('Fecha del movimiento'), '30/09/2026');
+      await press(tester, find.text('Guardar movimiento'));
+      expect(movements.stored.single.details.date, DateTime(2026, 9, 30));
+      final credit = movements.snapshot.accounts.singleWhere((a) => a.id == 2);
+      expect(credit.currentBalance.minorUnits, 11250);
+      expect(credit.details.openingDate, DateTime(2026, 10, 1));
+      await choose(
+        tester,
+        find.byType(DropdownButtonFormField<AccountPeriod>),
+        'Histórico',
+      );
+      await choose(
+        tester,
+        find.byKey(const ValueKey('history-month-2026-11')),
+        'Septiembre',
+      );
+      expect(find.text('Compra sintética'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
