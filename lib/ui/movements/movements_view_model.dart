@@ -13,6 +13,7 @@ import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
 import '../../domain/models/installment_plan.dart';
 import '../../domain/rules/movement_rules.dart';
+import '../core/date_input.dart';
 
 enum MovementsStatus { loading, ready, error }
 
@@ -367,13 +368,23 @@ class MovementsViewModel extends ChangeNotifier {
     Currency? currency,
     required String amount,
     required String description,
-    required DateTime date,
+    DateTime? date,
+    String? dateInput,
   }) async {
     if (_saving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     MovementDetails details;
     try {
+      final occurredOn = dateInput == null
+          ? date
+          : DateInput.tryParse(dateInput);
+      if (occurredOn == null) {
+        throw const MovementValidationException(
+          'date',
+          'Escribe una fecha válida con formato dd/mm/yyyy.',
+        );
+      }
       if (target != null) {
         final defaults = defaultsFor(type, target);
         if (!operationsFor(target).contains(type) ||
@@ -412,7 +423,7 @@ class MovementsViewModel extends ChangeNotifier {
         categoryId: categoryId,
         originalMovementId: originalMovementId,
         amount: value,
-        date: date,
+        date: occurredOn,
         description: description,
       );
       MovementRules.validateRegistration(

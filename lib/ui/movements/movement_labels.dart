@@ -1,6 +1,14 @@
 import '../../domain/models/movement.dart';
 
 extension MovementTypeLabel on MovementType {
+  String get shortLabel => switch (this) {
+    MovementType.expense => 'Gasto',
+    MovementType.creditPayment => 'Pago',
+    MovementType.income => 'Ingreso',
+    MovementType.transfer => 'Transferencia',
+    MovementType.refund => 'Devolución',
+  };
+
   String get label => switch (this) {
     MovementType.expense => 'Compra o gasto',
     MovementType.income => 'Ingreso',

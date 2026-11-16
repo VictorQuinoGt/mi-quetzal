@@ -46,6 +46,14 @@ Future<void> fill(
   await tester.enterText(field('Importe'), amount);
 }
 
+Future<void> openMovement(
+  WidgetTester tester, {
+  String operation = 'Gasto',
+}) async {
+  await press(tester, find.byType(FloatingActionButton));
+  await press(tester, find.text(operation));
+}
+
 void main() {
   late FakeAccountRepository accounts;
   late FakeMovementRepository movements;
@@ -75,7 +83,12 @@ void main() {
     movements = FakeMovementRepository(accounts);
   });
 
-  Future<void> boot(WidgetTester tester, int id, {bool debit = false}) async {
+  Future<void> boot(
+    WidgetTester tester,
+    int id, {
+    bool debit = false,
+    String operation = 'Gasto',
+  }) async {
     await tester.pumpWidget(
       testApp(repository: accounts, movements: movements),
     );
@@ -83,7 +96,7 @@ void main() {
     await tester.tap(find.text('Cuentas').last);
     await tester.pumpAndSettle();
     await openAccountDetails(tester, id, debit: debit);
-    await press(tester, find.text('Registrar movimiento'));
+    await openMovement(tester, operation: operation);
   }
 
   for (final entry in [(1, 8750), (2, 11250), (3, 8750)]) {
@@ -98,7 +111,7 @@ void main() {
         expect(origin.onChanged, isNull);
         await fill(tester);
         await press(tester, find.text('Guardar movimiento'));
-        expect(find.text('Nuevo movimiento'), findsNothing);
+        expect(find.text('Registrar gasto'), findsNothing);
         expect(find.text('Movimientos del período'), findsOneWidget);
         expect(find.text('Compra sintética'), findsOneWidget);
         expect(movements.stored.single.details.accountId, entry.$1);
@@ -129,6 +142,45 @@ void main() {
   }
 
   testWidgets(
+    'El botón solo muestra más y permite elegir o cancelar antes del formulario',
+    (tester) async {
+      await tester.pumpWidget(
+        testApp(repository: accounts, movements: movements),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cuentas').last);
+      await tester.pumpAndSettle();
+      await openAccountDetails(tester, 2);
+      expect(find.text('Registrar movimiento'), findsNothing);
+      expect(
+        find.byTooltip('Registrar movimiento en Crédito sintético'),
+        findsOneWidget,
+      );
+      await press(tester, find.byType(FloatingActionButton));
+      expect(find.text('Gasto'), findsOneWidget);
+      expect(find.text('Pago'), findsOneWidget);
+      expect(find.text('Registrar gasto'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      await Navigator.of(tester.element(find.text('Gasto'))).maybePop();
+      await tester.pumpAndSettle();
+      expect(movements.stored, isEmpty);
+      expect(find.text('Movimientos del período'), findsOneWidget);
+      await openMovement(tester, operation: 'Pago');
+      expect(find.text('Registrar pago'), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<MovementType>), findsNothing);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<int>>(
+              dropdown('Tarjeta de destino'),
+            )
+            .initialValue,
+        2,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Débito queda seleccionado y descuenta una sola vez el banco vinculado',
     (tester) async {
       await boot(tester, 1, debit: true);
@@ -143,14 +195,7 @@ void main() {
       );
       expect(card.initialValue, 1);
       expect(card.onChanged, isNull);
-      expect(
-        tester
-            .widget<DropdownButton<MovementType>>(
-              find.byType(DropdownButton<MovementType>),
-            )
-            .items,
-        hasLength(1),
-      );
+      expect(find.byType(DropdownButtonFormField<MovementType>), findsNothing);
       await fill(tester);
       await press(tester, find.text('Guardar movimiento'));
       expect(movements.stored.single.details.debitCardId, 1);
@@ -179,12 +224,7 @@ void main() {
   testWidgets(
     'Pagar crédito fija su destino y exige origen explícito en la misma moneda',
     (tester) async {
-      await boot(tester, 2);
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<MovementType>),
-        'Pago de tarjeta',
-      );
+      await boot(tester, 2, operation: 'Pago');
       expect(
         tester
             .widget<DropdownButtonFormField<int>>(dropdown('Cuenta de origen'))
@@ -235,14 +275,13 @@ void main() {
   );
 
   for (final type in [MovementType.income, MovementType.transfer]) {
-    testWidgets('Cambiar a ${type.name} conserva la cuenta seleccionada', (
+    testWidgets('Elegir ${type.name} conserva la cuenta seleccionada', (
       tester,
     ) async {
-      await boot(tester, 1);
-      await choose(
+      await boot(
         tester,
-        find.byType(DropdownButtonFormField<MovementType>),
-        type == MovementType.income ? 'Ingreso' : 'Transferencia',
+        1,
+        operation: type == MovementType.income ? 'Ingreso' : 'Transferencia',
       );
       final origin = tester.widget<DropdownButtonFormField<int>>(
         dropdown(
@@ -286,7 +325,7 @@ void main() {
       find.byType(DropdownButtonFormField<AccountPeriod>),
       'Mes anterior',
     );
-    await press(tester, find.text('Registrar movimiento'));
+    await openMovement(tester);
     await fill(tester);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
@@ -311,7 +350,7 @@ void main() {
         find.byType(DropdownButtonFormField<AccountPeriod>),
         'Mes anterior',
       );
-      await press(tester, find.text('Registrar movimiento'));
+      await openMovement(tester);
       await fill(tester);
       await press(tester, find.text('Guardar movimiento'));
       expect(find.text('Mes anterior'), findsOneWidget);
@@ -337,12 +376,7 @@ void main() {
       ),
     );
     accounts.stored.removeWhere((a) => a.id == 4);
-    await boot(tester, 5);
-    await choose(
-      tester,
-      find.byType(DropdownButtonFormField<MovementType>),
-      'Pago de tarjeta',
-    );
+    await boot(tester, 5, operation: 'Pago');
     expect(
       tester
           .widget<DropdownButtonFormField<int>>(dropdown('Cuenta de origen'))
@@ -369,7 +403,7 @@ void main() {
       await fill(tester);
       movements.failSave = true;
       await press(tester, find.text('Guardar movimiento'));
-      expect(find.text('Nuevo movimiento'), findsOneWidget);
+      expect(find.text('Registrar gasto'), findsOneWidget);
       expect(find.text('Compra sintética'), findsOneWidget);
       expect(
         tester
@@ -390,10 +424,10 @@ void main() {
             .onPressed,
         isNull,
       );
-      await Navigator.of(tester.element(find.text('Nuevo movimiento')))
+      await Navigator.of(tester.element(find.text('Registrar gasto')))
           .maybePop();
       await tester.pump();
-      expect(find.text('Nuevo movimiento'), findsOneWidget);
+      expect(find.text('Registrar gasto'), findsOneWidget);
       gate.complete();
       await tester.pumpAndSettle();
       expect(movements.stored, hasLength(1));

@@ -48,12 +48,11 @@ class AccountDetailView extends StatelessWidget {
       final theme = Theme.of(context);
       return Scaffold(
         floatingActionButton: ready
-            ? FloatingActionButton.extended(
+            ? FloatingActionButton(
                 heroTag: null,
                 onPressed: vm.ledger.isSaving ? null : onCreateMovement,
-                icon: const Icon(Icons.add),
-                label: const Text('Registrar movimiento'),
                 tooltip: 'Registrar movimiento en ${vm.name}',
+                child: const Icon(Icons.add),
               )
             : null,
         appBar: AppBar(

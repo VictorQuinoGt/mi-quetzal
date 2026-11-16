@@ -5,14 +5,21 @@ import '../../domain/models/account.dart';
 import '../../domain/models/account_activity.dart';
 import '../../domain/models/money.dart';
 import '../core/page_content.dart';
+import '../core/date_input.dart';
 import '../accounts/account_labels.dart';
 import 'movement_labels.dart';
 import 'movements_view_model.dart';
 
 class CreateMovementView extends StatefulWidget {
-  const CreateMovementView({super.key, required this.viewModel, this.target});
+  const CreateMovementView({
+    super.key,
+    required this.viewModel,
+    this.target,
+    this.initialType,
+  });
   final MovementsViewModel viewModel;
   final AccountDetailTarget? target;
+  final MovementType? initialType;
   @override
   State<CreateMovementView> createState() => _CreateMovementViewState();
 }
@@ -20,18 +27,18 @@ class CreateMovementView extends StatefulWidget {
 class _CreateMovementViewState extends State<CreateMovementView> {
   final _description = TextEditingController();
   final _amount = TextEditingController();
+  final _dateInput = TextEditingController();
   MovementType _type = MovementType.expense;
   int? _accountId;
   int? _counterpartyId;
   int? _debitCardId;
   int? _categoryId;
   Currency? _currency;
-  late DateTime _date;
   @override
   void initState() {
     super.initState();
-    _date = widget.viewModel.today;
-    _selectOperation(_type);
+    _dateInput.text = DateInput.format(widget.viewModel.today);
+    _selectOperation(widget.initialType ?? _type);
   }
 
   void _selectOperation(MovementType type) {
@@ -48,6 +55,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
   void dispose() {
     _description.dispose();
     _amount.dispose();
+    _dateInput.dispose();
     super.dispose();
   }
 
@@ -62,21 +70,27 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       currency: _currency,
       amount: _amount.text,
       description: _description.text,
-      date: _date,
+      dateInput: _dateInput.text,
       target: widget.target,
     );
     if (saved && mounted) Navigator.of(context).pop(true);
   }
 
   Future<void> _pickDate() async {
+    FocusScope.of(context).unfocus();
+    final typed = DateInput.tryParse(_dateInput.text);
     final date = await showDatePicker(
       context: context,
-      initialDate: _date,
+      initialDate: typed != null && !typed.isAfter(widget.viewModel.today)
+          ? typed
+          : widget.viewModel.today,
       firstDate: DateTime(1900),
       lastDate: widget.viewModel.today,
       helpText: 'Fecha del movimiento',
     );
-    if (date != null && mounted) setState(() => _date = date);
+    if (date != null && mounted) {
+      _dateInput.text = DateInput.format(date);
+    }
   }
 
   @override
@@ -117,7 +131,11 @@ class _CreateMovementViewState extends State<CreateMovementView> {
         canPop: !vm.isSaving,
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Nuevo movimiento'),
+            title: Text(
+              widget.initialType == null
+                  ? 'Nuevo movimiento'
+                  : 'Registrar ${_type.shortLabel.toLowerCase()}',
+            ),
             automaticallyImplyLeading: !vm.isSaving,
           ),
           body: SafeArea(
@@ -130,35 +148,31 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                   ),
                   const SizedBox(height: 20),
                 ],
-                DropdownButtonFormField<MovementType>(
-                  initialValue: _type,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo de operación',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    for (final type in vm.operationsFor(widget.target))
-                      DropdownMenuItem(
-                        value: type,
-                        child: Text(
-                          type.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                if (widget.initialType == null) ...[
+                  DropdownButtonFormField<MovementType>(
+                    initialValue: _type,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de operación',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final type in vm.operationsFor(widget.target))
+                        DropdownMenuItem(
+                          value: type,
+                          child: Text(
+                            type.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                  ],
-                  onChanged: vm.isSaving
-                      ? null
-                      : (type) => setState(() => _selectOperation(type!)),
-                ),
-                const SizedBox(height: 16),
-                Text(_type.explanation),
-                const SizedBox(height: 8),
-                const Text(
-                  'Para registrar una devolución, abre la compra original en Movimientos y pulsa «Devolver».',
-                ),
-                const SizedBox(height: 24),
+                    ],
+                    onChanged: vm.isSaving
+                        ? null
+                        : (type) => setState(() => _selectOperation(type!)),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 DropdownButtonFormField<int>(
                   key: ValueKey('origin-${_type.name}'),
                   initialValue: _accountId,
@@ -361,28 +375,30 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                     prefixText: currency == null
                         ? null
                         : '${currency.name.toUpperCase()} ',
-                    helperText: 'Mayor que cero, hasta 2 decimales, sin separadores de miles.',
-                    helperMaxLines: 3,
                     errorText: vm.fieldErrors['amount'],
                     errorMaxLines: 4,
                     border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: vm.isSaving ? null : _pickDate,
-                  icon: const Icon(Icons.calendar_today_outlined),
-                  label: Text(
-                    'Fecha: ${MaterialLocalizations.of(context).formatMediumDate(_date)}',
-                  ),
-                ),
-                if (vm.fieldErrors['date'] case final String error)
-                  Text(
-                    error,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                TextField(
+                  controller: _dateInput,
+                  enabled: !vm.isSaving,
+                  keyboardType: TextInputType.datetime,
+                  decoration: InputDecoration(
+                    labelText: 'Fecha del movimiento',
+                    hintText: 'dd/mm/yyyy',
+                    helperText: 'dd/mm/yyyy',
+                    errorText: vm.fieldErrors['date'],
+                    errorMaxLines: 3,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: 'Elegir fecha en el calendario',
+                      onPressed: vm.isSaving ? null : _pickDate,
+                      icon: const Icon(Icons.calendar_today_outlined),
                     ),
                   ),
+                ),
                 const SizedBox(height: 24),
                 if (vm.saveError case final String error) ...[
                   Semantics(

@@ -28,6 +28,7 @@ import '../../ui/home/home_view.dart';
 import '../../ui/movements/movements_view.dart';
 import '../../ui/movements/movements_view_model.dart';
 import '../../ui/movements/create_movement_view.dart';
+import '../../ui/movements/movement_labels.dart';
 import '../../ui/movements/create_refund_view.dart';
 import '../../ui/planning/planning_view.dart';
 import 'app_section.dart';
@@ -136,11 +137,54 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
       return;
     }
+    MovementType? initialType;
+    if (accountContext != null) {
+      initialType = await showModalBottomSheet<MovementType>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: Text(
+                    'Registrar en ${accountContext.name}',
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                ),
+                for (final type in vm.operationsFor(accountContext.target))
+                  ListTile(
+                    leading: Icon(switch (type) {
+                      MovementType.expense => Icons.receipt_long_outlined,
+                      MovementType.creditPayment => Icons.payments_outlined,
+                      MovementType.income => Icons.south_west,
+                      _ => Icons.swap_horiz,
+                    }),
+                    title: Text(type.shortLabel),
+                    onTap: () => Navigator.of(sheetContext).pop(type),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (initialType == null ||
+          !mounted ||
+          vm.status != MovementsStatus.ready) {
+        return;
+      }
+    }
     vm.startCreate();
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) =>
-            CreateMovementView(viewModel: vm, target: accountContext?.target),
+        builder: (context) => CreateMovementView(
+          viewModel: vm,
+          target: accountContext?.target,
+          initialType: initialType,
+        ),
       ),
     );
     if (created == true && mounted) {
