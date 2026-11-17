@@ -189,7 +189,7 @@ Future<void> verifyPaymentMigration(
   var local = LocalDatabase(factory: factory, path: path);
   try {
     final db = await local.database;
-    expect(await db.getVersion(), 10);
+    expect(await db.getVersion(), LocalDatabase.schemaVersion);
     expect((await db.rawQuery('PRAGMA foreign_keys')).single.values.single, 1);
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     for (final table in tables.where((t) => t != 'sqlite_sequence')) {

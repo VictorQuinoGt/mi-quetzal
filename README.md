@@ -39,7 +39,7 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Pago de tarjeta desde una cuenta bancaria/efectivo registrada o como «Efectivo en agencia». Esta última opción no exige cuentas de fondos y reduce solo la deuda de la tarjeta, sin inventar un origen ni descontar otras cuentas.
 - Resumen mensual en Inicio, por moneda y categoría, sin doble gasto por pagos de tarjeta.
 - Devoluciones parciales o completas vinculadas a compras, con control del importe pendiente y reversión del gasto.
-- Migración al esquema 9 que conserva los datos anteriores y añade planes, calendario, revisiones y conciliaciones; las fechas de corte/pago antiguas permanecen sin configurar.
+- Migraciones hasta el esquema 11 que conservan el historial, añaden cuotas/categorías de pago y reparan referencias temporales que podían bloquear nuevos gastos y pagos. Las fechas de corte/pago antiguas permanecen sin configurar.
 
 Cuentas muestra una sola etiqueta: «Deuda actual» para crédito, «Saldo disponible» para banco/efectivo y «Saldo de cuenta vinculada» para débito. Los importes a favor se identifican por moneda. La lista omite aperturas, fechas, límites y lápices; el detalle contiene los datos ampliados y el acceso de edición. Se pueden editar alias, aperturas, fechas, límites, últimos cuatro, tipo bancario y entidad; el tipo general y la moneda principal de una cuenta existente se conservan. La edición general de movimientos y el borrado aún no están implementados. Siguen pendientes adelantos de crédito, conversiones, presupuestos e importación. No se cargan datos de ejemplo ni saldos ficticios.
 
@@ -90,6 +90,8 @@ También se puede dejar vacío el límite cuando no se conoce. El saldo bancario
 ## Probar movimientos en el teléfono
 
 Para comprobar la migración, instalar la nueva APK como actualización sobre la anterior, sin desinstalar ni borrar datos. La compilación se realiza con `flutter build apk --debug`.
+
+Si el guardado sigue fallando después de actualizar, el mensaje conserva el formulario y añade un código de diagnóstico: `BD-ESTRUCTURA`, `BD-OCUPADA`, `BD-ESPACIO`, `BD-LECTURA`, `BD-CONEXION` o `BD-GUARDADO`. El código no contiene consultas SQL, descripciones ni importes. La migración 11 repara bases v10 sin borrar movimientos ni cambiar sus categorías o formas de pago.
 
 Usar cuentas sintéticas en GTQ. Se admiten movimientos anteriores a la fecha de alta:
 

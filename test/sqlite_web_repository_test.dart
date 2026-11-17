@@ -1,5 +1,6 @@
 import 'support/migration_expectations.dart';
 import 'support/payment_migration_scenario.dart';
+import 'support/movement_reference_repair_scenario.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,6 +60,7 @@ void main() {
     final path = 'test_payments_${DateTime.now().microsecondsSinceEpoch}.db';
     try {
       await verifyPaymentMigration(factory, path);
+      await verifyMovementReferenceRepair(factory, path);
     } finally {
       await factory.deleteDatabase(path);
     }

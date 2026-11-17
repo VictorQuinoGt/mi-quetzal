@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_account_repository.dart';
 import 'package:mi_quetzal/data/repositories/sqlite_movement_repository.dart';
+import 'package:mi_quetzal/data/repositories/movement_repository.dart';
 import 'package:mi_quetzal/data/services/local_database.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
@@ -190,7 +191,7 @@ void main() {
         movements.createMovement(
           operation(MovementType.transfer, bank.id, 1000, other: cash.id),
         ),
-        throwsA(isA<DatabaseException>()),
+        throwsA(isA<MovementStorageException>()),
       );
       final snapshot = await movements.getSnapshot();
       expect(snapshot.movements, isEmpty);

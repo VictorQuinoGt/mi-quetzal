@@ -565,6 +565,9 @@ class MovementsViewModel extends ChangeNotifier {
     } on CategoryValidationException catch (error) {
       _fieldErrors = {error.field: error.message};
       return false;
+    } on MovementStorageException catch (error) {
+      _saveError = '$failure Código: ${error.failure.code}.';
+      return false;
     } catch (_) {
       _saveError = failure;
       return false;

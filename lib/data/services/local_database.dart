@@ -6,7 +6,7 @@ import 'payment_migration.dart';
 class LocalDatabase {
   LocalDatabase({required this.factory, this.path, this.singleInstance = true});
 
-  static const schemaVersion = 10;
+  static const schemaVersion = 11;
   final DatabaseFactory factory;
   final String? path;
   final bool singleInstance;
@@ -26,7 +26,7 @@ class LocalDatabase {
           onConfigure: (db) async {
             final version = await db.getVersion();
             await db.execute(
-              'PRAGMA foreign_keys = ${version > 0 && version < 10 ? 'OFF' : 'ON'}',
+              'PRAGMA foreign_keys = ${version > 0 && version < 11 ? 'OFF' : 'ON'}',
             );
           },
           onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -239,7 +239,13 @@ class LocalDatabase {
         BEGIN SELECT RAISE(ABORT, 'La categoría está vinculada a cuotas'); END''',
       );
     }
-    if (from < 10 && to >= 10) await migratePaymentSupport(db);
+    if (from < 10 && to >= 10) {
+      await migratePaymentSupport(db);
+    } else if (from < 11 && to >= 11) {
+      // La v10 desplegada pudo conservar una FK hacia movements_next.
+      // Reconstruir preserva también categorías y formas de pago ya guardadas.
+      await migratePaymentSupport(db, preservePaymentFunding: true);
+    }
   }
 
   static Future<void> _addRefunds(Database db) async {
@@ -270,7 +276,7 @@ class LocalDatabase {
         description TEXT NOT NULL CHECK(length(trim(description)) BETWEEN 1 AND 120),
         debit_card_id INTEGER REFERENCES debit_cards(id) ON DELETE RESTRICT,
         category_id INTEGER REFERENCES categories(id) ON DELETE RESTRICT,
-        original_movement_id INTEGER REFERENCES movements_with_refunds(id) ON DELETE RESTRICT,
+        original_movement_id INTEGER REFERENCES movements(id) ON DELETE RESTRICT,
         CHECK((type IN ('expense', 'income', 'refund') AND counterparty_account_id IS NULL) OR
           (type IN ('transfer', 'creditPayment') AND counterparty_account_id IS NOT NULL AND account_id <> counterparty_account_id)),
         CHECK((type = 'refund' AND original_movement_id IS NOT NULL AND original_movement_id <> id

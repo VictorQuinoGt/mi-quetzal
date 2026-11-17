@@ -1,3 +1,5 @@
+import 'package:sqflite_common/sqlite_api.dart';
+
 import '../../domain/models/ledger_snapshot.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/movement.dart';
@@ -42,6 +44,25 @@ class SqliteMovementRepository implements MovementRepository {
         'Los cargos automáticos se registran desde el plan.',
       );
     }
+    try {
+      return await _createManualMovement(details);
+    } on DatabaseException catch (error) {
+      final primaryCode = (error.getResultCode() ?? 0) & 0xff;
+      final failure = error.isNoSuchTableError() || primaryCode == 1
+          ? MovementStorageFailure.structure
+          : error.isDatabaseClosedError()
+          ? MovementStorageFailure.connection
+          : switch (primaryCode) {
+              5 || 6 => MovementStorageFailure.busy,
+              13 => MovementStorageFailure.full,
+              8 => MovementStorageFailure.readOnly,
+              _ => MovementStorageFailure.unknown,
+            };
+      throw MovementStorageException(failure);
+    }
+  }
+
+  Future<LedgerSnapshot> _createManualMovement(MovementDetails details) async {
     final db = await _database.database;
     return db.transaction((transaction) async {
       await generateDueInstallments(transaction, _now());

@@ -1,9 +1,12 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
-/// Reconstrucción transaccional del esquema 9, conservando ids y referencias.
+/// Reconstrucción transaccional de los esquemas 9/10, conservando ids y referencias.
 /// Las bases existentes desactivan FK en onConfigure, antes de la transacción;
 /// se comprueba su integridad antes de confirmar y se activan en onOpen.
-Future<void> migratePaymentSupport(DatabaseExecutor db) async {
+Future<void> migratePaymentSupport(
+  DatabaseExecutor db, {
+  bool preservePaymentFunding = false,
+}) async {
   final triggers = await db.rawQuery(
     "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND sql IS NOT NULL",
   );
@@ -36,7 +39,7 @@ Future<void> migratePaymentSupport(DatabaseExecutor db) async {
     description TEXT NOT NULL CHECK(length(trim(description)) BETWEEN 1 AND 120),
     debit_card_id INTEGER REFERENCES debit_cards(id) ON DELETE RESTRICT,
     category_id INTEGER REFERENCES categories(id) ON DELETE RESTRICT,
-    original_movement_id INTEGER REFERENCES movements_next(id) ON DELETE RESTRICT,
+    original_movement_id INTEGER REFERENCES movements(id) ON DELETE RESTRICT,
     installment_plan_id INTEGER REFERENCES installment_plans(id) ON DELETE RESTRICT,
     installment_number INTEGER,
     origin TEXT NOT NULL DEFAULT 'manual' CHECK(origin IN ('manual','installmentCharge','installmentConversion')),
@@ -48,8 +51,10 @@ Future<void> migratePaymentSupport(DatabaseExecutor db) async {
     CHECK((type = 'refund' AND original_movement_id IS NOT NULL AND original_movement_id <> id AND category_id IS NULL AND debit_card_id IS NULL) OR
       (type <> 'refund' AND original_movement_id IS NULL)))
   ''');
-  const columns =
-      'id,type,account_id,counterparty_account_id,amount_minor,currency,occurred_on,description,debit_card_id,category_id,original_movement_id,installment_plan_id,installment_number,origin,recognized_expense_minor';
+  // Referenciar el nombre definitivo evita depender de que ALTER TABLE cambie
+  // las FK con foreign_keys=OFF (SQLite antiguo o legacy_alter_table=ON).
+  final columns =
+      'id,type,account_id,counterparty_account_id,amount_minor,currency,occurred_on,description,debit_card_id,category_id,original_movement_id,installment_plan_id,installment_number,origin,recognized_expense_minor${preservePaymentFunding ? ',payment_funding' : ''}';
   await db.execute(
     'INSERT INTO movements_next($columns) SELECT $columns FROM movements',
   );
@@ -71,6 +76,8 @@ Future<void> migratePaymentSupport(DatabaseExecutor db) async {
     if (!{
       'movements_category_insert',
       'movements_category_update',
+      'movements_payment_insert',
+      'movements_payment_update',
       'categories_kind',
     }.contains(trigger['name'])) {
       await db.execute(trigger['sql'] as String);
@@ -102,7 +109,15 @@ Future<void> migratePaymentSupport(DatabaseExecutor db) async {
       CASE type WHEN 'creditPayment' THEN 'payment' ELSE type END <> NEW.kind)
     BEGIN SELECT RAISE(ABORT, 'La categoría está en uso por otra operación'); END''',
   );
-  if ((await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
+  final references = await db.rawQuery('PRAGMA foreign_key_list(movements)');
+  final originalReference = references.where(
+    (row) => row['from'] == 'original_movement_id',
+  );
+  // foreign_key_check no descubre el padre inexistente si todos los vínculos
+  // son nulos. Comprobar también la estructura antes de confirmar la migración.
+  if (originalReference.length != 1 ||
+      originalReference.single['table'] != 'movements' ||
+      (await db.rawQuery('PRAGMA foreign_key_check')).isNotEmpty) {
     throw StateError(
       'La migración de pagos encontró referencias incompatibles.',
     );
