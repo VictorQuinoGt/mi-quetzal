@@ -1,3 +1,4 @@
+import '../support/navigation.dart';
 import '../support/account_details.dart';
 
 import 'package:mi_quetzal/ui/accounts/account_detail_view.dart';
@@ -68,7 +69,11 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(section));
+    if (section == 'Movimientos') {
+      await openHistory(tester);
+    } else {
+      await selectAppSection(tester, section);
+    }
     await tester.pumpAndSettle();
   }
 
@@ -216,20 +221,7 @@ void main() {
     if (find.byType(AccountDetailView).evaluate().isNotEmpty) {
       await closeAccountDetails(tester);
     }
-    await tester.tap(find.text('Movimientos'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Registrar'));
-    await tester.pumpAndSettle();
-    await choose(
-      tester,
-      find.byType(DropdownButtonFormField<int>).first,
-      'Banco · GTQ',
-    );
-    await choose(
-      tester,
-      find.byType(DropdownButtonFormField<int>).last,
-      'Débito de prueba · 0042',
-    );
+    await openAccountMovement(tester, 1, debit: true);
     await tester.ensureVisible(field('Descripción'));
     await tester.enterText(field('Descripción'), 'Compra con débito sintética');
     await tester.ensureVisible(field('Importe'));
@@ -240,7 +232,7 @@ void main() {
     await closeMovementDetails(tester);
     expect(movements.stored.single.details.accountId, 1);
     expect(movements.stored.single.details.debitCardId, 1);
-    await tester.tap(find.text('Cuentas'));
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     expect(find.text('GTQ 987.50'), findsNWidgets(2));
     expect(movements.snapshot.accounts, hasLength(4));
@@ -273,10 +265,10 @@ void main() {
       await tester.enterText(field('Buscar en descripción'), 'FARMACIA');
       await tester.pumpAndSettle();
       expect(find.text('1 de 3 movimientos'), findsOneWidget);
-      await tester.tap(find.text('Cuentas'));
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       expect(find.text('GTQ 940.00'), findsOneWidget);
-      await tester.tap(find.text('Movimientos'));
+      await openHistory(tester);
       await tester.pumpAndSettle();
       expect(
         tester

@@ -31,7 +31,8 @@ import '../../ui/movements/movements_view_model.dart';
 import '../../ui/movements/create_movement_view.dart';
 import '../../ui/movements/movement_labels.dart';
 import '../../ui/movements/create_refund_view.dart';
-import '../../ui/planning/planning_view.dart';
+import '../../ui/settings/settings_view.dart';
+import '../../ui/settings/financial_institutions_view.dart';
 import 'app_section.dart';
 import 'app_shell_view_model.dart';
 import '../appearance_view_model.dart';
@@ -195,15 +196,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           viewModel: vm,
           target: accountContext?.target,
           initialType: initialType,
+          onCatalogChanged: () => _publishSnapshot(vm.snapshot!),
         ),
       ),
     );
-    if (created == true && mounted) {
-      if (accountContext == null) {
-        _viewModel.selectSection(AppSection.movements);
-      }
+    if (mounted && vm.snapshot != null) {
       _publishSnapshot(vm.snapshot!);
-      if (!mounted) return;
+    }
+    if (created == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Movimiento guardado')));
     }
@@ -249,8 +249,43 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         builder: (context) => CategoriesView(viewModel: _movementsViewModel),
       ),
     );
-    if (mounted) await _accountsViewModel.load();
+    if (mounted && _movementsViewModel.snapshot != null) {
+      _publishSnapshot(_movementsViewModel.snapshot!);
+    }
   }
+
+  Future<void> _manageInstitutions() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            FinancialInstitutionsView(viewModel: _accountsViewModel),
+      ),
+    );
+    if (!mounted) return;
+    await _movementsViewModel.load();
+    if (mounted && _movementsViewModel.snapshot != null) {
+      _publishSnapshot(_movementsViewModel.snapshot!);
+    }
+  }
+
+  Future<void> _openHistory() => Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('Historial general')),
+        body: SafeArea(
+          child: MovementsView(
+            viewModel: _movementsViewModel,
+            onOpenAccounts: () {
+              Navigator.of(context).pop();
+              _selectSection(AppSection.accounts);
+            },
+            onCategorize: _categorizeMovement,
+            onRefund: _refundMovement,
+          ),
+        ),
+      ),
+    ),
+  );
 
   Future<void> _categorizeMovement(
     Movement movement, {
@@ -262,8 +297,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     vm.startCreate();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) =>
-            CategorizeMovementView(viewModel: vm, movement: current),
+        builder: (context) => CategorizeMovementView(
+          viewModel: vm,
+          movement: current,
+          onCatalogChanged: () => _publishSnapshot(vm.snapshot!),
+        ),
       ),
     );
     if (saved == true && mounted) {
@@ -404,19 +442,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const _destinations = [
     (section: AppSection.home, label: 'Inicio', icon: Icons.home_outlined),
     (
-      section: AppSection.movements,
-      label: 'Movimientos',
-      icon: Icons.swap_vert_rounded,
-    ),
-    (
       section: AppSection.accounts,
       label: 'Cuentas',
       icon: Icons.account_balance_wallet_outlined,
     ),
     (
-      section: AppSection.planning,
-      label: 'Planificación',
-      icon: Icons.calendar_month_outlined,
+      section: AppSection.settings,
+      label: 'Ajustes',
+      icon: Icons.settings_outlined,
     ),
   ];
 
@@ -432,24 +465,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Widget _page(AppSection section) => switch (section) {
     AppSection.home => HomeView(
-      onNavigate: _selectSection,
+      onAccounts: () => _selectSection(AppSection.accounts),
+      onHistory: _openHistory,
+      onOpenAccount: (id) =>
+          _openAccountDetail(AccountDetailTarget.account(id)),
       viewModel: _movementsViewModel,
-    ),
-    AppSection.movements => MovementsView(
-      viewModel: _movementsViewModel,
-      onCreate: _createMovement,
-      onOpenAccounts: () => _selectSection(AppSection.accounts),
-      onManageCategories: _manageCategories,
-      onCategorize: _categorizeMovement,
-      onRefund: _refundMovement,
     ),
     AppSection.accounts => AccountsView(
       viewModel: _accountsViewModel,
       onCreate: _createAccount,
       onOpen: _openAccountDetail,
-      onManageInstitutions: _manageCategories,
     ),
-    AppSection.planning => const PlanningView(),
+    AppSection.settings => SettingsView(
+      appearance: widget.appearanceViewModel,
+      canManage:
+          _movementsViewModel.status == MovementsStatus.ready &&
+          _accountsViewModel.status == AccountsStatus.ready,
+      onCategories: _manageCategories,
+      onInstitutions: _manageInstitutions,
+    ),
   };
 
   @override
@@ -554,17 +588,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                             label: destination.label,
                           ),
                       ],
-                    ),
-              floatingActionButton: _viewModel.section == AppSection.accounts
-                  ? null
-                  : FloatingActionButton.extended(
-                      onPressed:
-                          (_movementsViewModel.status == MovementsStatus.ready
-                          ? _createMovement
-                          : null),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Registrar'),
-                      tooltip: 'Registrar movimiento',
                     ),
             );
           },

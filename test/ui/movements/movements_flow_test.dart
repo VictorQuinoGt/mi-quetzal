@@ -1,3 +1,4 @@
+import '../../support/navigation.dart';
 import '../../support/movement_details.dart';
 
 import 'dart:async';
@@ -6,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
-import 'package:mi_quetzal/domain/models/movement.dart';
 
 import '../../support/fake_account_repository.dart';
 import '../../support/fake_movement_repository.dart';
@@ -55,25 +55,23 @@ void main() {
     movements = FakeMovementRepository(accounts);
   });
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(
+    WidgetTester tester, {
+    int account = 1,
+    String operation = 'Gasto',
+  }) async {
     await tester.pumpWidget(
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Registrar'));
-    await tester.pumpAndSettle();
+    await openAccountMovement(tester, account, operation: operation);
   }
 
   for (final entry in [('Banco · GTQ', 1, 98750), ('Crédito · GTQ', 3, 6250)]) {
     testWidgets('Registra compra desde ${entry.$1} y actualiza Cuentas', (
       tester,
     ) async {
-      await open(tester);
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<int>).first,
-        entry.$1,
-      );
+      await open(tester, account: entry.$2);
       await tester.ensureVisible(field('Descripción'));
       await tester.enterText(field('Descripción'), 'Compra sintética');
       await tester.ensureVisible(field('Importe'));
@@ -82,7 +80,7 @@ void main() {
       expect(find.text('Movimiento guardado'), findsOneWidget);
       expect(find.text('Compra sintética'), findsOneWidget);
       expect(find.text('GTQ 12.50'), findsOneWidget);
-      await tester.tap(find.text('Cuentas'));
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       expect(
         find.text(Money(entry.$3, Currency.gtq).formatted),
@@ -101,12 +99,7 @@ void main() {
   testWidgets(
     'Un pago registra una operación vinculada y actualiza origen y deuda',
     (tester) async {
-      await open(tester);
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<MovementType>),
-        'Pago de tarjeta',
-      );
+      await open(tester, account: 3, operation: 'Pago');
       await choose(
         tester,
         find.byType(DropdownButtonFormField<int>).first,
@@ -114,7 +107,11 @@ void main() {
       );
       await choose(
         tester,
-        find.byType(DropdownButtonFormField<int>).last,
+        find.byWidgetPredicate(
+          (w) =>
+              w is DropdownButtonFormField<int> &&
+              w.decoration.labelText == 'Tarjeta de destino',
+        ),
         'Crédito',
       );
       await tester.ensureVisible(field('Descripción'));
@@ -131,7 +128,7 @@ void main() {
       );
       expect(movements.stored.single.details.isExpense, isFalse);
       await closeMovementDetails(tester);
-      await tester.tap(find.text('Cuentas'));
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       expect(find.text('GTQ 980.00'), findsOneWidget);
       expect(find.text('GTQ 30.00'), findsOneWidget);
@@ -143,11 +140,6 @@ void main() {
     (tester) async {
       movements.failSave = true;
       await open(tester);
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<int>),
-        'Banco · GTQ',
-      );
       await tester.ensureVisible(field('Descripción'));
       await tester.enterText(field('Descripción'), 'Compra sintética');
       await tester.ensureVisible(field('Importe'));
@@ -172,16 +164,17 @@ void main() {
     await open(tester);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    expect(find.text('Nuevo movimiento'), findsNothing);
+    expect(find.text('Registrar gasto'), findsNothing);
     expect(movements.stored, isEmpty);
   });
 
-  testWidgets('Guardar exige seleccionar una cuenta y muestra el error', (
+  testWidgets('Guardar valida los campos antes de escribir en la cuenta fija', (
     tester,
   ) async {
     await open(tester);
     await submit(tester);
-    expect(find.text('Selecciona una cuenta.'), findsOneWidget);
+    expect(find.text('Selecciona una cuenta.'), findsNothing);
+    expect(find.text('Guardar movimiento'), findsOneWidget);
     expect(movements.createCalls, 0);
   });
 
@@ -190,11 +183,6 @@ void main() {
   ) async {
     movements.saveGate = Completer<void>();
     await open(tester);
-    await choose(
-      tester,
-      find.byType(DropdownButtonFormField<int>),
-      'Banco · GTQ',
-    );
     await tester.ensureVisible(field('Descripción'));
     await tester.enterText(field('Descripción'), 'Compra sintética');
     await tester.ensureVisible(field('Importe'));
@@ -210,10 +198,9 @@ void main() {
           .onPressed,
       isNull,
     );
-    await Navigator.of(tester.element(find.text('Nuevo movimiento')))
-        .maybePop();
+    await Navigator.of(tester.element(find.text('Registrar gasto'))).maybePop();
     await tester.pump();
-    expect(find.text('Nuevo movimiento'), findsOneWidget);
+    expect(find.text('Registrar gasto'), findsOneWidget);
     movements.saveGate!.complete();
     await tester.pumpAndSettle();
     expect(movements.stored, hasLength(1));
@@ -229,11 +216,6 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await open(tester);
-    await choose(
-      tester,
-      find.byType(DropdownButtonFormField<int>),
-      'Banco · GTQ',
-    );
     await tester.ensureVisible(field('Descripción'));
     await tester.enterText(field('Descripción'), 'Compra sintética');
     await tester.ensureVisible(field('Importe'));

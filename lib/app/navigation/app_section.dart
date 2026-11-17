@@ -1,1 +1,1 @@
-enum AppSection { home, movements, accounts, planning }
+enum AppSection { home, accounts, settings }

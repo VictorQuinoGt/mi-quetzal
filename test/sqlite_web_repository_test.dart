@@ -27,6 +27,7 @@ import 'domain/financial_institution_test.dart' as financial_institution_tests;
 import 'domain/account_activity_test.dart' as account_activity_tests;
 import 'domain/installment_calendar_test.dart' as installment_calendar_tests;
 import 'domain/payment_test.dart' as payment_tests;
+import 'domain/debt_overview_test.dart' as debt_overview_tests;
 
 import 'package:mi_quetzal/data/repositories/sqlite_installment_repository.dart';
 import 'package:mi_quetzal/domain/models/installment_plan.dart';
@@ -48,6 +49,7 @@ void main() {
     account_activity_tests.main();
     installment_calendar_tests.main();
     payment_tests.main();
+    debt_overview_tests.main();
   }
   test('SQLite web migra v9 con categorías Pago y efectivo en agencia sin perder historial', () async {
     final factory = createDatabaseFactoryFfiWeb(

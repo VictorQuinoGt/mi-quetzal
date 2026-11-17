@@ -1,3 +1,5 @@
+import '../support/navigation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/app/appearance_view_model.dart';
@@ -79,12 +81,12 @@ void main() {
     addTearDown(vm.dispose);
     await tester.pumpWidget(testApp(appearance: vm));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuentas').last);
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     await choose(tester, 'Oscuro');
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      1,
     );
     await tester.tap(find.text('Agregar cuenta'));
     await tester.pumpAndSettle();
@@ -131,7 +133,7 @@ void main() {
     await vm.select(AppAppearance.dark);
     await tester.pumpWidget(testApp(appearance: vm));
     await tester.pumpAndSettle();
-    for (final label in ['Movimientos', 'Cuentas', 'Planificación', 'Inicio']) {
+    for (final label in ['Cuentas', 'Ajustes', 'Inicio']) {
       await tester.tap(
         find.descendant(
           of: find.byType(NavigationBar),

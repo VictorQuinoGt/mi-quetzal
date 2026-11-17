@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import '../../domain/models/movement.dart';
 import '../core/page_content.dart';
 import '../movements/movements_view_model.dart';
+import 'category_field.dart';
 
 class CategorizeMovementView extends StatefulWidget {
   const CategorizeMovementView({
     super.key,
     required this.viewModel,
     required this.movement,
+    this.onCatalogChanged,
   });
   final MovementsViewModel viewModel;
   final Movement movement;
+  final VoidCallback? onCatalogChanged;
   @override
   State<CategorizeMovementView> createState() => _CategorizeMovementViewState();
 }
@@ -62,35 +65,13 @@ class _CategorizeMovementViewState extends State<CategorizeMovementView> {
                   'Solo cambia la categoría. La fecha, descripción, importe y saldos se conservan.',
                 ),
                 const SizedBox(height: 24),
-                DropdownButtonFormField<int>(
-                  initialValue: _categoryId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Categoría',
-                    errorText: vm.fieldErrors['category'],
-                    errorMaxLines: 3,
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: null,
-                      child: Text('Sin categoría'),
-                    ),
-                    for (final category in vm.categoriesFor(
-                      widget.movement.details.type,
-                    ))
-                      DropdownMenuItem(
-                        value: category.id,
-                        child: Text(
-                          category.details.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: vm.isSaving
-                      ? null
-                      : (id) => setState(() => _categoryId = id),
+                CategoryField(
+                  viewModel: vm,
+                  type: widget.movement.details.type,
+                  selectedId: _categoryId,
+                  label: 'Categoría',
+                  onChanged: (id) => setState(() => _categoryId = id),
+                  onAdded: widget.onCatalogChanged,
                 ),
                 const SizedBox(height: 24),
                 if (vm.fieldErrors['movement'] case final String error)

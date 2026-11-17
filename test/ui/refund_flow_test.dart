@@ -1,3 +1,4 @@
+import '../support/navigation.dart';
 import '../support/movement_details.dart';
 
 import 'dart:async';
@@ -52,7 +53,7 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Movimientos'));
+    await openHistory(tester);
     await tester.pumpAndSettle();
     await openMovementDetails(tester, 1);
     await press(tester, 'Devolver');
@@ -89,11 +90,11 @@ void main() {
       await tester.tap(find.text('Devolución').last);
       await tester.pumpAndSettle();
       expect(find.text('1 de 2 movimientos'), findsOneWidget);
-      await tester.tap(find.text('Inicio'));
+      await selectAppSection(tester, 'Inicio');
       await tester.pumpAndSettle();
       expect(find.text('GTQ 3.75'), findsNWidgets(2));
       expect(find.text('GTQ -3.75'), findsOneWidget);
-      await tester.tap(find.text('Cuentas'));
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       expect(find.text('GTQ 6.25'), findsOneWidget);
     },
@@ -146,7 +147,7 @@ void main() {
         testApp(repository: accounts, movements: movements),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Movimientos'));
+      await openHistory(tester);
       await tester.pumpAndSettle();
       expect(find.text('Reembolso sintético'), findsOneWidget);
       await openMovementDetails(tester, 1);

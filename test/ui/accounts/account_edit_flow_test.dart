@@ -1,3 +1,4 @@
+import '../../support/navigation.dart';
 import '../../support/account_details.dart';
 import '../../support/movement_details.dart';
 
@@ -69,7 +70,7 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuentas'));
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
   }
 
@@ -235,14 +236,7 @@ void main() {
     'Compra USD y su devolución conservan GTQ intactos en una tarjeta dual',
     (tester) async {
       await boot(tester);
-      await tester.tap(find.text('Movimientos'));
-      await tester.pumpAndSettle();
-      await press(tester, find.text('Registrar'));
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<int>).first,
-        'Crédito sintético · GTQ / USD',
-      );
+      await openAccountMovement(tester, 2);
       await choose(
         tester,
         find.byType(DropdownButtonFormField<Currency>),
@@ -262,7 +256,7 @@ void main() {
       await press(tester, find.text('Guardar devolución'));
       expect(movements.stored.last.details.amount.currency, Currency.usd);
       await closeMovementDetails(tester);
-      await tester.tap(find.text('Cuentas'));
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       expect(find.text('GTQ 5.00'), findsOneWidget);
       expect(find.text(r'USD 21.00'), findsOneWidget);
@@ -280,22 +274,18 @@ void main() {
         ),
       );
       await boot(tester);
-      await tester.tap(find.text('Movimientos'));
-      await tester.pumpAndSettle();
-      await press(tester, find.text('Registrar'));
-      await choose(
+      await openAccountMovement(
         tester,
-        find.byType(DropdownButtonFormField<MovementType>),
-        'Pago de tarjeta',
+        accounts.stored.last.id,
+        operation: 'Pago',
       );
       await choose(
         tester,
-        find.byType(DropdownButtonFormField<int>).first,
-        'Banco USD sintético · USD',
-      );
-      await choose(
-        tester,
-        find.byType(DropdownButtonFormField<int>).last,
+        find.byWidgetPredicate(
+          (w) =>
+              w is DropdownButtonFormField<int> &&
+              w.decoration.labelText == 'Tarjeta de destino',
+        ),
         'Crédito sintético',
       );
       await tester.enterText(field('Descripción'), 'Pago USD sintético');

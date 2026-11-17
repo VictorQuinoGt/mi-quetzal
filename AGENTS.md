@@ -60,7 +60,7 @@
 
 ## Interfaz
 - UI en español, fechas legibles y moneda visible. Separar fondos disponibles, deuda y límite de crédito.
-- Navegación prevista: Inicio, Movimientos, Cuentas y Planificación, con acceso rápido para registrar movimientos.
+- Navegación: Inicio, Cuentas y Ajustes. Historial general como consulta secundaria desde Inicio; registro de movimientos desde el detalle de cada cuenta o tarjeta.
 - Tema consistente, controles accesibles y estados de carga, vacío, datos y error. No comunicar estados solo con color.
 - Las maquetas son referencias: saldos y listas reales deben venir de repositorios, no de constantes en una View.
 

@@ -8,17 +8,17 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 
 - Apariencia Sistema, Claro u Oscuro desde el botón de la barra superior. Sistema es el valor inicial y sigue los cambios del dispositivo; la elección se guarda localmente y se recupera antes de mostrar la app. El modo oscuro usa azul noche, superficies diferenciadas y acentos azul claro/coral.
 
-- Inicio con accesos a Movimientos, Cuentas y Planificación.
+- Navegación Inicio · Cuentas · Ajustes. Inicio muestra el resumen general de deudas y acceso secundario al Historial general, con filtros desplegables.
 - Navegación inferior en móvil y lateral desde 840 px de ancho.
 - Estado de navegación en `AppShellViewModel` mediante `ChangeNotifier`.
-- Acceso rápido «Registrar» fuera de Cuentas; si faltan cuentas, conduce a su alta. Cuentas utiliza «Agregar cuenta» en el encabezado, sin botón flotante.
+- Registro mediante «+» desde el detalle de cada cuenta o tarjeta. Cuentas utiliza «Agregar cuenta» en el encabezado, sin menú de tres puntos ni botón flotante.
 - Soporte web para desarrollar y probar la interfaz sin Android Studio.
 - Registro y listado de efectivo, cuentas bancarias y tarjetas de crédito.
 - Cuentas organizadas en crédito, débito, bancos y efectivo, con tarjetas visuales del mismo estilo y saldos actuales visibles.
 - Crédito con aperturas y saldos/deudas independientes en GTQ y USD dentro de una misma tarjeta; el formulario y el detalle muestran únicamente el límite en quetzales.
 - Cuentas bancarias de tipo Monetario o Ahorro; débito muestra el saldo compartido del banco vinculado.
 - Edición de cuentas y tarjetas de débito existentes, conservando identidad e historial.
-- Catálogo de entidades financieras en Categorías, seleccionable en cuentas y tarjetas; alta directa junto al selector, con selección automática y conservación del formulario. Terminación bancaria opcional de cuatro dígitos.
+- Ajustes reúne Categorías, Entidades financieras y Apariencia. Los catálogos se presentan en pantallas independientes; los formularios se abren con «Agregar categoría» o «Agregar entidad financiera». Categorías permite filtrar por Gasto, Pago e Ingreso. Terminación bancaria opcional de cuatro dígitos.
 - Tarjetas compactas que se abren completas al tocar: alias, entidad configurada, tipo, terminación y una etiqueta de importes por cuenta, con GTQ/USD separados.
 - Detalle propio por identificador de cuenta o tarjeta, con edición, datos completos y movimientos por mes calendario, independiente de los filtros globales.
 - El botón «+» del detalle permite elegir la operación antes de abrir el formulario con la cuenta fija. En crédito muestra «Gasto» o «Pago», con la tarjeta como destino de pagos y origen de fondos explícito; en débito conserva tarjeta y banco vinculado para gastos. Banco/efectivo ofrecen también ingreso y transferencia. Guardar regresa al mismo detalle, mantiene el período y actualiza saldos, listado e historial general.
@@ -35,9 +35,10 @@ Aplicación Flutter con tema azul y rojo e interfaz en español:
 - Saldos actuales calculados desde la apertura y los movimientos, sin mezclar monedas.
 - Tarjetas de débito vinculadas a bancos, sin saldos independientes, y compras identificadas por tarjeta.
 - Filtros de historial por cuenta, operación, moneda, descripción y rango de fechas.
-- Categorías propias de Gasto, Ingreso o Pago, opcionales al registrar y asignables a operaciones anteriores del mismo tipo. Clasificar pagos no los convierte en ingresos ni gastos.
+- Categorías propias de Gasto, Ingreso o Pago, opcionales al registrar y asignables a operaciones anteriores del mismo tipo. «Agregar categoría», junto al selector, permite crear una compatible y seleccionarla sin perder el formulario; sus errores y estado de guardado son independientes. Clasificar pagos no los convierte en ingresos ni gastos.
 - Pago de tarjeta desde una cuenta bancaria/efectivo registrada o como «Efectivo en agencia». Esta última opción no exige cuentas de fondos y reduce solo la deuda de la tarjeta, sin inventar un origen ni descontar otras cuentas.
 - Resumen mensual en Inicio, por moneda y categoría, sin doble gasto por pagos de tarjeta.
+- Resumen de deudas en Inicio: total GTQ/USD separado, tarjetas con deuda, detalle por tarjeta y fechas de pago configuradas. Los saldos a favor se suman aparte y no compensan deuda en otras tarjetas. Cuotas futuras pendientes muestra únicamente cuotas aún no cargadas posteriores a hoy; no se suman a la deuda actual. Las fechas pasadas se presentan para revisión, sin asumir mora ni recurrencia.
 - Devoluciones parciales o completas vinculadas a compras, con control del importe pendiente y reversión del gasto.
 - Migraciones hasta el esquema 11 que conservan el historial, añaden cuotas/categorías de pago y reparan referencias temporales que podían bloquear nuevos gastos y pagos. Las fechas de corte/pago antiguas permanecen sin configurar.
 
@@ -96,7 +97,7 @@ Si el guardado sigue fallando después de actualizar, el mensaje conserva el for
 Usar cuentas sintéticas en GTQ. Se admiten movimientos anteriores a la fecha de alta:
 
 1. Crear «Banco de prueba» con saldo `1000`, «Efectivo de prueba» con `0` y «Crédito de prueba» con deuda `0`.
-2. Pulsar «Registrar», elegir compra/gasto en crédito y guardar `50`. La deuda debe ser `GTQ 50.00`.
+2. Abrir la tarjeta de crédito y pulsar «+» → «Gasto» y guardar `50`. La deuda debe ser `GTQ 50.00`.
 3. Registrar pago de tarjeta de `20`, desde banco hacia crédito. Banco debe quedar en `GTQ 980.00` y deuda en `GTQ 30.00`. El historial muestra una compra y un pago; el pago no es otro gasto.
 4. Transferir `100` del banco al efectivo: banco `GTQ 880.00` y efectivo `GTQ 100.00`.
 5. Registrar una compra de `10` desde efectivo y un ingreso de `25` al banco: efectivo `GTQ 90.00` y banco `GTQ 905.00`.
@@ -114,11 +115,11 @@ Instalar la APK como actualización, sin desinstalar la anterior ni borrar datos
 
 1. En Cuentas, crear una nueva cuenta bancaria sintética «Banco débito prueba», GTQ y saldo inicial `1000`.
 2. Abrir el detalle de ese banco y pulsar «Vincular débito». El banco queda precargado. Crear «Débito principal» con últimos cuatro `0042`; se puede añadir «Débito adicional» a la misma cuenta.
-3. En «Registrar», elegir compra/gasto y la cuenta «Banco débito prueba». Seleccionar «Débito principal» en el campo opcional de tarjeta y registrar `12.50` con descripción «Compra débito prueba».
+3. Abrir «Débito principal», pulsar «+» → «Gasto» y registrar `12.50` con descripción «Compra débito prueba».
 4. Registrar otra compra de `7.50` con «Débito adicional». La cuenta bancaria debe mostrar `GTQ 980.00`. Las tarjetas no muestran ni agregan saldos propios.
-5. En Movimientos, filtrar por el banco, compra/gasto y GTQ. Buscar «débito» y seleccionar un rango de fechas que incluya ambas compras. Deben aparecer dos operaciones con su tarjeta identificada.
+5. En Inicio → Ver historial general → Filtros, filtrar por el banco, compra/gasto y GTQ. Buscar «débito» y seleccionar un rango de fechas que incluya ambas compras. Deben aparecer dos operaciones con su tarjeta identificada.
 6. Cambiar a USD manteniendo la cuenta GTQ: debe aparecer el estado sin coincidencias. Consultar Cuentas y comprobar que el saldo sigue en `GTQ 980.00`.
-7. Volver a Movimientos y pulsar «Limpiar filtros» para recuperar todo el historial. Cerrar y volver a abrir la app: las tarjetas y compras deben conservarse.
+7. Volver al Historial general y pulsar «Limpiar filtros» para recuperar todo el historial. Cerrar y volver a abrir la app: las tarjetas y compras deben conservarse.
 
 Débito se registra con alias y últimos cuatro opcionales. Solo puede vincularse a una cuenta bancaria existente; la moneda se toma de esa cuenta. Varias tarjetas pueden compartir el banco. En compras, seleccionar una tarjeta es opcional; cambiar de cuenta o tipo de operación limpia esa selección. La identificación de tarjeta de débito se admite únicamente en compras/gastos. Los retiros pueden registrarse como transferencia banco→efectivo; identificar su tarjeta queda pendiente.
 
@@ -128,21 +129,23 @@ Los filtros se combinan, mantienen el orden del historial y nunca recalculan sal
 
 Instalar la APK como actualización, sin desinstalar ni borrar datos, para comprobar la migración desde la versión anterior.
 
-1. En Movimientos → Categorías, crear «Alimentos de prueba» de tipo Gasto y «Salario de prueba» de tipo Ingreso. Las categorías no se asignan automáticamente por descripción.
+1. En Ajustes → Categorías, pulsar «Agregar categoría» para crear «Alimentos de prueba» de tipo Gasto y «Salario de prueba» de tipo Ingreso. Probar los filtros Todas/Gasto/Ingreso/Pago. Las categorías no se asignan automáticamente por descripción.
 2. Para una prueba aislada, usar nuevas cuentas sintéticas en GTQ: «Banco resumen» con apertura `1000` y «Crédito resumen» con deuda inicial `0`.
 3. En el mes actual, registrar ingreso `100` al banco con categoría «Salario de prueba», una compra de crédito de `50` con «Alimentos de prueba» y un pago de tarjeta de `20` desde el banco hacia crédito.
 4. En Inicio, el incremento de los totales GTQ del mes debe ser ingresos `100`, gastos `50` y diferencia `50`. El pago de `20` no vuelve a sumar gasto; la apertura `1000` tampoco es ingreso. Si ya hay operaciones de ese mes, estos valores se agregan a ellas.
-5. En Movimientos, tocar la fila o letra de un ingreso/gasto/pago anterior y pulsar «Categorizar». Asignar una categoría compatible o «Sin categoría». Deben conservarse descripción, fecha, importe, identidad y saldos; el desglose por categoría se actualiza para ingresos/gastos y excluye pagos.
-6. Probar el filtro por categoría y «Sin categoría». Este último incluye ingresos/gastos no clasificados y sus devoluciones; no incluye transferencias ni pagos. Los filtros no cambian los totales de Inicio.
+5. En Inicio → Ver historial general → Filtros, tocar la fila o letra de un ingreso/gasto/pago anterior y pulsar «Categorizar». Asignar una categoría compatible o «Sin categoría». Deben conservarse descripción, fecha, importe, identidad y saldos; el desglose por categoría se actualiza para ingresos/gastos y excluye pagos.
+6. Probar el filtro por categoría y «Sin categoría». Este último incluye ingresos/gastos/pagos no clasificados y devoluciones; no incluye transferencias. Los filtros no cambian los totales de Inicio.
 7. Cambiar al mes anterior y regresar. GTQ y USD tienen resúmenes separados; no se suman ni convierten. Cerrar y volver a abrir la app para comprobar la conservación de categorías y asignaciones.
 
-El resumen utiliza todas las operaciones del mes seleccionado, incluidas compras con crédito y débito una sola vez. Excluye aperturas, transferencias y pagos de tarjeta. «Diferencia del mes» es ingreso menos gasto y no representa dinero disponible. Los meses sin ingresos/gastos muestran un estado vacío, incluso si solo hubo transferencias. Las categorías de ingreso y gasto se mantienen separadas; no se aplican a pagos ni transferencias.
+El resumen mensual utiliza todas las operaciones del mes seleccionado, incluidas compras con crédito y débito una sola vez. Excluye aperturas, transferencias y pagos de tarjeta. «Diferencia del mes» es ingreso menos gasto y no representa dinero disponible. Los meses sin ingresos/gastos muestran un estado vacío, incluso si solo hubo transferencias. Las categorías de Ingreso, Gasto y Pago se mantienen separadas por uso; las transferencias no admiten categoría.
+
+Para probar el alta rápida: abrir una cuenta → «+» → Gasto/Pago/Ingreso y completar descripción, importe y fecha. Pulsar «Agregar categoría» junto al selector; el uso está fijado por la operación. Al agregarla queda seleccionada y los campos anteriores se conservan. Cancelar el diálogo no agrega nada; cancelar después el movimiento conserva la categoría ya guardada. El nombre inválido y un fallo de escritura se muestran dentro del diálogo, sin reutilizar los errores del movimiento. Durante el guardado se bloquean doble envío y cierre.
 
 Los totales usan centavos exactos y comprobación de rango mediante `BigInt`. Si un agregado supera el rango de `Money`, el resumen muestra un error explícito; los movimientos válidos se conservan. No se ha implementado renombrar, borrar o fusionar categorías. Se permiten nombres repetidos con identidades diferentes.
 
 ## Probar devoluciones en el teléfono
 
-Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus datos. En Movimientos, tocar una compra: su detalle ofrece «Devolver» cuando tiene importe pendiente.
+Instalar la APK como actualización, sin desinstalar la anterior ni borrar sus datos. En Inicio → Ver historial general → Filtros, tocar una compra: su detalle ofrece «Devolver» cuando tiene importe pendiente.
 
 1. Crear cuentas sintéticas GTQ «Banco devoluciones» con apertura `1000` y «Crédito devoluciones» con deuda `0`.
 2. Registrar una compra de `50` desde el banco. Pulsar «Devolver» en esa compra, escribir descripción e importe `20` y guardar. Banco debe quedar en `970`; el pendiente de devolver es `30`.
@@ -171,11 +174,11 @@ La segunda moneda de crédito es opcional: dejarla vacía significa que aún no 
 
 ## Probar entidades financieras y estado de cuenta
 
-1. Al crear o editar una cuenta o tarjeta, pulsar «Agregar entidad financiera» junto al selector, escribir el nombre y guardar: la entidad queda seleccionada sin perder alias, importes ni banco vinculado. Cancelar conserva la selección anterior. El catálogo también está disponible en Movimientos → Categorías y en el menú «Administrar cuentas» de Cuentas, independientemente de las categorías de ingreso/gasto/pago.
+1. Al crear o editar una cuenta o tarjeta, pulsar «Agregar entidad financiera» junto al selector, escribir el nombre y pulsar «Agregar»: la entidad queda seleccionada sin perder alias, importes ni banco vinculado. Cancelar conserva la selección anterior. Su catálogo independiente está disponible en Ajustes → Entidades financieras.
 2. Editar un banco y seleccionar la entidad. Completar «Terminación (últimos 4 dígitos)», por ejemplo `0042`. Su tarjeta debe mostrar entidad, terminación, tipo y saldo actual, sin apertura ni fecha.
 3. Editar crédito y débito para seleccionar su entidad. Débito permite una entidad explícita o «De la cuenta bancaria», que utiliza la del banco vinculado. Los datos de entidad y terminación no cambian el saldo ni crean movimientos.
 4. Comprobar «Deuda actual» una sola vez en crédito, con importes GTQ/USD separados y sin apertura/fecha/límite en la lista. Débito muestra «Saldo de cuenta vinculada». La regla de saldo a favor se mantiene por moneda.
-5. En Movimientos, comprobar descripción, fecha/categoría, letra de operación e importe. Tocar la fila o letra para ver cuentas, forma de pago, terminaciones, entidad y vínculos de débito/devolución cuando corresponda.
+5. En Inicio → Ver historial general → Filtros, comprobar descripción, fecha/categoría, letra de operación e importe. Tocar la fila o letra para ver cuentas, forma de pago, terminaciones, entidad y vínculos de débito/devolución cuando corresponda.
 6. Categorizar o devolver desde el detalle. Guardar debe actualizar el detalle y los saldos/resumen correspondientes. Volver al estado de cuenta conserva los filtros. Abrir el detalle recupera cuotas vencidas cuando existen planes; sin planes, no añade movimientos.
 7. Cerrar y abrir la app para comprobar que entidades, asignaciones y terminaciones persisten. La actualización conserva datos anteriores; no deduce entidades a partir de alias ni inventa terminaciones.
 

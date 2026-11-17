@@ -7,6 +7,7 @@ import '../../domain/models/money.dart';
 import '../core/page_content.dart';
 import '../core/date_input.dart';
 import '../accounts/account_labels.dart';
+import '../categories/category_field.dart';
 import 'movement_labels.dart';
 import 'movements_view_model.dart';
 
@@ -16,10 +17,12 @@ class CreateMovementView extends StatefulWidget {
     required this.viewModel,
     this.target,
     this.initialType,
+    this.onCatalogChanged,
   });
   final MovementsViewModel viewModel;
   final AccountDetailTarget? target;
   final MovementType? initialType;
+  final VoidCallback? onCatalogChanged;
   @override
   State<CreateMovementView> createState() => _CreateMovementViewState();
 }
@@ -415,40 +418,14 @@ class _CreateMovementViewState extends State<CreateMovementView> {
                 if (_type == MovementType.expense ||
                     _type == MovementType.income ||
                     _type == MovementType.creditPayment) ...[
-                  if (vm.categoriesFor(_type).isNotEmpty)
-                    DropdownButtonFormField<int>(
-                      key: ValueKey('movement-category-${_type.name}'),
-                      initialValue: _categoryId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Categoría (opcional)',
-                        errorText: vm.fieldErrors['category'],
-                        errorMaxLines: 3,
-                        border: const OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem<int>(
-                          value: null,
-                          child: Text('Sin categoría'),
-                        ),
-                        for (final category in vm.categoriesFor(_type))
-                          DropdownMenuItem(
-                            value: category.id,
-                            child: Text(
-                              category.details.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: vm.isSaving
-                          ? null
-                          : (id) => setState(() => _categoryId = id),
-                    )
-                  else
-                    const Text(
-                      'Puedes crear categorías desde Movimientos → Categorías.',
-                    ),
+                  CategoryField(
+                    viewModel: vm,
+                    type: _type,
+                    selectedId: _categoryId,
+                    dropdownKey: ValueKey('movement-category-${_type.name}'),
+                    onChanged: (id) => setState(() => _categoryId = id),
+                    onAdded: widget.onCatalogChanged,
+                  ),
                   const SizedBox(height: 20),
                 ],
                 TextField(

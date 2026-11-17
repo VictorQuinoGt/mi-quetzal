@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 
 import 'accounts_view_model.dart';
 
+Future<int?> showAddFinancialInstitution(
+  BuildContext context,
+  AccountsViewModel vm,
+) {
+  vm.startCreateInstitution();
+  return showDialog<int>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _CreateInstitutionDialog(viewModel: vm),
+  );
+}
+
 class FinancialInstitutionField extends StatelessWidget {
   const FinancialInstitutionField({
     super.key,
@@ -19,12 +31,7 @@ class FinancialInstitutionField extends StatelessWidget {
   final Key? dropdownKey;
 
   Future<void> _add(BuildContext context) async {
-    viewModel.startCreateInstitution();
-    final id = await showDialog<int>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _CreateInstitutionDialog(viewModel: viewModel),
-    );
+    final id = await showAddFinancialInstitution(context, viewModel);
     if (context.mounted && id != null) onChanged(id);
   }
 
@@ -151,9 +158,7 @@ class _CreateInstitutionDialogState extends State<_CreateInstitutionDialog> {
             FilledButton(
               onPressed: vm.isSavingInstitution ? null : _save,
               child: Text(
-                vm.isSavingInstitution
-                    ? 'Guardando entidad…'
-                    : 'Guardar entidad',
+                vm.isSavingInstitution ? 'Guardando entidad…' : 'Agregar',
               ),
             ),
           ],

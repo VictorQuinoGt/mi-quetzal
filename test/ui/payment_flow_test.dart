@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../support/navigation.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/category.dart';
@@ -71,15 +74,15 @@ void main() {
         testApp(repository: accounts, movements: movements),
       );
       await tester.pumpAndSettle();
-      await press(tester, find.text('Movimientos').last);
-      await press(tester, find.text('Categorías'));
+      await openCategoryCatalog(tester);
+      await press(tester, find.text('Agregar categoría'));
       await tester.enterText(field('Nombre de categoría'), 'Abono sintético');
       await choose(
         tester,
         find.byType(DropdownButtonFormField<CategoryKind>),
         'Pago',
       );
-      await press(tester, find.text('Crear categoría'));
+      await press(tester, find.text('Agregar'));
       expect(movements.categories.single.details.kind, CategoryKind.payment);
       await press(tester, find.byType(BackButton));
       await openPayment(tester);

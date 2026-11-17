@@ -1,3 +1,5 @@
+import '../../support/navigation.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -198,7 +200,7 @@ void main() {
         testApp(repository: accounts, movements: repository),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cuentas').last);
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       await openAccountDetails(tester, 2);
       await tester.tap(find.byType(FloatingActionButton));
@@ -216,7 +218,7 @@ void main() {
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       expect(find.text('GTQ 102.50'), findsOneWidget);
-      await tester.tap(find.text('Movimientos').last);
+      await openHistory(tester);
       await tester.pumpAndSettle();
       expect(find.text('Compra sintética'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -236,7 +238,7 @@ void main() {
         testApp(repository: accounts, movements: repository),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Movimientos').last);
+      await openHistory(tester);
       await tester.pumpAndSettle();
       final vm = tester
           .widget<MovementsView>(find.byType(MovementsView))

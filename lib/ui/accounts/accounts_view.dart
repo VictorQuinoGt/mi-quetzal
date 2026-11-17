@@ -13,12 +13,10 @@ class AccountsView extends StatelessWidget {
     required this.viewModel,
     required this.onCreate,
     required this.onOpen,
-    required this.onManageInstitutions,
   });
   final AccountsViewModel viewModel;
   final VoidCallback onCreate;
   final ValueChanged<AccountDetailTarget> onOpen;
-  final VoidCallback onManageInstitutions;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -42,17 +40,6 @@ class AccountsView extends StatelessWidget {
                     : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Agregar cuenta'),
-              ),
-              PopupMenuButton<String>(
-                key: const ValueKey('account-admin'),
-                tooltip: 'Administrar cuentas',
-                onSelected: (_) => onManageInstitutions(),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'institutions',
-                    child: Text('Entidades financieras'),
-                  ),
-                ],
               ),
             ],
           ),

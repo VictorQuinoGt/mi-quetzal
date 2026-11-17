@@ -3,6 +3,9 @@ import '../../support/account_details.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../support/navigation.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/test_app.dart';
@@ -23,9 +26,7 @@ Future<void> openForm(
 ) async {
   await tester.pumpWidget(testApp(repository: repository));
   await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('Explorar mis cuentas'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Explorar mis cuentas'));
+  await selectAppSection(tester, 'Cuentas');
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text('Nueva cuenta'));
   await tester.pumpAndSettle();
@@ -57,7 +58,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(testApp(repository: repository));
-    await tester.tap(find.text('Explorar mis cuentas'));
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     expect(find.text('Banco de prueba'), findsOneWidget);
     expect(find.text('GTQ 1,234.56'), findsOneWidget);
@@ -160,7 +161,7 @@ void main() {
     await tester.pumpWidget(
       testApp(repository: repository, movements: movements),
     );
-    await tester.tap(find.text('Explorar mis cuentas'));
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     expect(
       find.textContaining('No se pudieron cargar tus cuentas'),

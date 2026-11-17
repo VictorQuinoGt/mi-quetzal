@@ -11,16 +11,12 @@ class MovementsView extends StatelessWidget {
   const MovementsView({
     super.key,
     required this.viewModel,
-    required this.onCreate,
     required this.onOpenAccounts,
-    required this.onManageCategories,
     required this.onCategorize,
     required this.onRefund,
   });
   final MovementsViewModel viewModel;
-  final VoidCallback onCreate;
   final VoidCallback onOpenAccounts;
-  final VoidCallback onManageCategories;
   final ValueChanged<Movement> onCategorize;
   final ValueChanged<Movement> onRefund;
 
@@ -31,10 +27,10 @@ class MovementsView extends StatelessWidget {
       final theme = Theme.of(context);
       return PageContent(
         children: [
-          Text('Tus movimientos', style: theme.textTheme.headlineMedium),
+          Text('Todas tus cuentas', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),
           const Text(
-            'Compras, ingresos y transferencias con sus cuentas vinculadas.',
+            'Consulta tus operaciones. Para registrar, abre una cuenta o tarjeta.',
           ),
           const SizedBox(height: 24),
           if (viewModel.status == MovementsStatus.ready &&
@@ -48,17 +44,6 @@ class MovementsView extends StatelessWidget {
               label: const Text('Reintentar'),
             ),
             const SizedBox(height: 16),
-          ],
-          if (viewModel.status == MovementsStatus.ready) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: onManageCategories,
-                icon: const Icon(Icons.category_outlined),
-                label: const Text('Categorías'),
-              ),
-            ),
-            const SizedBox(height: 20),
           ],
           if (viewModel.status == MovementsStatus.loading)
             const Center(child: CircularProgressIndicator())
@@ -99,22 +84,32 @@ class MovementsView extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     FilledButton.icon(
-                      onPressed: viewModel.accounts.isEmpty
-                          ? onOpenAccounts
-                          : onCreate,
+                      onPressed: onOpenAccounts,
                       icon: const Icon(Icons.add),
-                      label: Text(
-                        viewModel.accounts.isEmpty
-                            ? 'Ir a Cuentas'
-                            : 'Nuevo movimiento',
-                      ),
+                      label: const Text('Ir a Cuentas'),
                     ),
                   ],
                 ),
               ),
             ),
           ] else ...[
-            MovementFilters(viewModel: viewModel),
+            Card(
+              child: ExpansionTile(
+                key: const ValueKey('history-filters'),
+                initiallyExpanded: viewModel.filter.isActive,
+                title: Text(
+                  viewModel.filter.isActive ? 'Filtros activos' : 'Filtros',
+                ),
+                leading: const Icon(Icons.filter_list),
+                childrenPadding: const EdgeInsets.all(16),
+                children: [MovementFilters(viewModel: viewModel)],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${viewModel.visibleMovements.length} de ${viewModel.movements.length} movimientos',
+            ),
+            const SizedBox(height: 16),
             if (viewModel.visibleMovements.isEmpty)
               const Card(
                 child: Padding(

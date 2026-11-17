@@ -259,9 +259,6 @@ class _MovementFiltersState extends State<MovementFilters> {
           ],
         ),
         const SizedBox(height: 12),
-        Text(
-          '${vm.visibleMovements.length} de ${vm.movements.length} movimientos',
-        ),
         const SizedBox(height: 20),
       ],
     );

@@ -1,3 +1,5 @@
+import '../../support/navigation.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -93,7 +95,7 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuentas').last);
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     await openAccountDetails(tester, id, debit: debit);
     await openMovement(tester, operation: operation);
@@ -127,13 +129,13 @@ void main() {
           tester
               .widget<NavigationBar>(find.byType(NavigationBar))
               .selectedIndex,
-          2,
+          1,
         );
         expect(
           find.text(Money(entry.$2, Currency.gtq).formatted),
           findsWidgets,
         );
-        await tester.tap(find.text('Movimientos').last);
+        await openHistory(tester);
         await tester.pumpAndSettle();
         expect(find.text('Compra sintética'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -148,7 +150,7 @@ void main() {
         testApp(repository: accounts, movements: movements),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cuentas').last);
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       await openAccountDetails(tester, 2);
       expect(find.text('Registrar movimiento'), findsNothing);
@@ -317,7 +319,7 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuentas').last);
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
     await openAccountDetails(tester, 2);
     await choose(
@@ -341,7 +343,7 @@ void main() {
         testApp(repository: accounts, movements: movements),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cuentas').last);
+      await selectAppSection(tester, 'Cuentas');
       await tester.pumpAndSettle();
       await openAccountDetails(tester, 1);
       await press(tester, find.text('Débito sintético'));

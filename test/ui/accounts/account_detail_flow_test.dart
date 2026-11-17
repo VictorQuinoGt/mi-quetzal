@@ -1,3 +1,5 @@
+import '../../support/navigation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
@@ -100,7 +102,7 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuentas'));
+    await selectAppSection(tester, 'Cuentas');
     await tester.pumpAndSettle();
   }
 
@@ -149,7 +151,7 @@ void main() {
       await closeAccountDetails(tester);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        2,
+        1,
       );
     },
   );
@@ -311,7 +313,7 @@ void main() {
       await closeAccountDetails(tester);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        2,
+        1,
       );
     },
   );

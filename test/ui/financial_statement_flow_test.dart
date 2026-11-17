@@ -1,4 +1,5 @@
 import '../support/account_details.dart';
+import '../support/navigation.dart';
 
 import 'dart:async';
 
@@ -65,7 +66,11 @@ void main() {
       testApp(repository: accounts, movements: movements),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(section));
+    if (section == 'Movimientos') {
+      await openHistory(tester);
+    } else {
+      await selectAppSection(tester, section);
+    }
     await tester.pumpAndSettle();
   }
 
@@ -110,7 +115,7 @@ void main() {
         field('Nombre de entidad financiera'),
         'Entidad desde cuenta',
       );
-      await press(tester, find.text('Guardar entidad'));
+      await press(tester, find.text('Agregar'));
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Entidad desde cuenta'), findsOneWidget);
       expect(
@@ -137,7 +142,7 @@ void main() {
       field('Nombre de entidad financiera'),
       'Entidad independiente',
     );
-    await press(tester, find.text('Guardar entidad'));
+    await press(tester, find.text('Agregar'));
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(accounts.stored, hasLength(2));
@@ -157,7 +162,7 @@ void main() {
       expect(find.text('Editar cuenta'), findsOneWidget);
 
       await press(tester, find.text('Agregar entidad financiera'));
-      await press(tester, find.text('Guardar entidad'));
+      await press(tester, find.text('Agregar'));
       expect(
         find.textContaining('nombre de entidad de 1 a 60'),
         findsOneWidget,
@@ -168,7 +173,7 @@ void main() {
         'Entidad nueva',
       );
       accounts.failSave = true;
-      await press(tester, find.text('Guardar entidad'));
+      await press(tester, find.text('Agregar'));
       expect(
         find.textContaining('No se pudo crear la entidad'),
         findsOneWidget,
@@ -182,7 +187,7 @@ void main() {
       );
       accounts.failSave = false;
       accounts.saveGate = Completer<void>();
-      await tester.tap(find.text('Guardar entidad'));
+      await tester.tap(find.text('Agregar'));
       await tester.pump();
       expect(
         tester
@@ -224,7 +229,7 @@ void main() {
       field('Nombre de entidad financiera'),
       'Entidad de débito',
     );
-    await press(tester, find.text('Guardar entidad'));
+    await press(tester, find.text('Agregar'));
     expect(find.text('Entidad de débito'), findsOneWidget);
     await press(tester, find.text('Guardar tarjeta'));
     expect(accounts.cards.single.details.financialInstitutionId, 1);
@@ -237,11 +242,12 @@ void main() {
       await record();
       await boot(tester);
       await openFinancialAdministration(tester);
+      await press(tester, find.text('Agregar entidad financiera'));
       await tester.enterText(
         field('Nombre de entidad financiera'),
         'Entidad sintética',
       );
-      await press(tester, find.text('Agregar entidad financiera'));
+      await press(tester, find.text('Agregar'));
       expect(movements.categories, hasLength(1));
       expect(
         accounts.financialInstitutions.single.details.name,
@@ -249,6 +255,7 @@ void main() {
       );
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
+      await selectAppSection(tester, 'Cuentas');
       await openAccountDetails(tester, 1);
       await press(tester, find.byTooltip('Editar Banco sintético'));
       await choose(
@@ -363,17 +370,18 @@ void main() {
       await boot(tester);
       await openFinancialAdministration(tester);
       await press(tester, find.text('Agregar entidad financiera'));
+      await press(tester, find.text('Agregar'));
       expect(
         find.textContaining('nombre de entidad de 1 a 60'),
         findsOneWidget,
       );
-      expect(movements.createInstitutionCalls, 0);
+      expect(accounts.createInstitutionCalls, 0);
       await tester.enterText(
         field('Nombre de entidad financiera'),
         'Entidad sintética',
       );
-      movements.failSave = true;
-      await press(tester, find.text('Agregar entidad financiera'));
+      accounts.failSave = true;
+      await press(tester, find.text('Agregar'));
       expect(
         find.textContaining('No se pudo crear la entidad financiera'),
         findsOneWidget,
@@ -385,9 +393,9 @@ void main() {
             .text,
         'Entidad sintética',
       );
-      movements.failSave = false;
-      movements.saveGate = Completer<void>();
-      await tester.tap(find.text('Agregar entidad financiera'));
+      accounts.failSave = false;
+      accounts.saveGate = Completer<void>();
+      await tester.tap(find.text('Agregar'));
       await tester.pump();
       expect(
         tester
@@ -397,10 +405,10 @@ void main() {
             .onPressed,
         isNull,
       );
-      await Navigator.of(tester.element(find.text('Categorías'))).maybePop();
+      await Navigator.of(tester.element(find.byType(AlertDialog))).maybePop();
       await tester.pump();
       expect(find.text('Nombre de entidad financiera'), findsOneWidget);
-      movements.saveGate!.complete();
+      accounts.saveGate!.complete();
       await tester.pumpAndSettle();
       expect(accounts.financialInstitutions, hasLength(1));
     },

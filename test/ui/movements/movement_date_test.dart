@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../support/navigation.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_quetzal/domain/models/account.dart';
 import 'package:mi_quetzal/domain/models/money.dart';
@@ -99,12 +102,7 @@ void main() {
       testApp(repository: accounts, movements: repository),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Registrar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<int>).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Banco de prueba · GTQ').last);
-    await tester.pumpAndSettle();
+    await openAccountMovement(tester, 1);
     await tester.ensureVisible(field('Descripción'));
     await tester.enterText(field('Descripción'), 'Fecha escrita de prueba');
     await tester.ensureVisible(field('Importe'));
@@ -147,6 +145,7 @@ void main() {
       await openForm(tester);
       await tester.ensureVisible(field('Fecha del movimiento'));
       await tester.enterText(field('Fecha del movimiento'), '10/11/2026');
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Elegir fecha en el calendario'));
       await tester.pumpAndSettle();
       expect(
@@ -178,6 +177,7 @@ void main() {
     for (final text in ['31/02/2026', '31/12/9999']) {
       await tester.ensureVisible(field('Fecha del movimiento'));
       await tester.enterText(field('Fecha del movimiento'), text);
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Elegir fecha en el calendario'));
       await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog), findsOneWidget);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'navigation.dart';
+
 Future<void> openAccountDetails(
   WidgetTester tester,
   int id, {
@@ -19,11 +21,7 @@ Future<void> closeAccountDetails(WidgetTester tester) async {
 }
 
 Future<void> openFinancialAdministration(WidgetTester tester) async {
-  final menu = find.byKey(const ValueKey('account-admin'));
-  await tester.ensureVisible(menu);
-  await tester.pumpAndSettle();
-  await tester.tap(menu);
-  await tester.pumpAndSettle();
+  await selectAppSection(tester, 'Ajustes');
   await tester.tap(find.text('Entidades financieras'));
   await tester.pumpAndSettle();
 }

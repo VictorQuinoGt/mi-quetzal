@@ -14,6 +14,7 @@ import '../../domain/models/money.dart';
 import '../../domain/models/movement.dart';
 import '../../domain/models/financial_institution.dart';
 import '../../domain/models/installment_plan.dart';
+import '../../domain/models/debt_overview.dart';
 import '../../domain/rules/movement_rules.dart';
 import '../core/date_input.dart';
 
@@ -34,6 +35,12 @@ class MovementsViewModel extends ChangeNotifier {
   LedgerSnapshot? _snapshot;
   MovementsStatus _status = MovementsStatus.loading;
   bool _saving = false;
+  bool _savingCategory = false;
+  String? _categoryNameError;
+  String? _categorySaveError;
+  bool get isSavingCategory => _savingCategory;
+  String? get categoryNameError => _categoryNameError;
+  String? get categorySaveError => _categorySaveError;
   bool _loading = false;
   bool _disposed = false;
   int _loadGeneration = 0;
@@ -43,7 +50,7 @@ class MovementsViewModel extends ChangeNotifier {
   String? get loadError => _loadError;
 
   void applySnapshot(LedgerSnapshot snapshot) {
-    if (_disposed || _saving) return;
+    if (_disposed || isSaving) return;
     _loadGeneration++;
     _loading = false;
     _loadError = null;
@@ -65,6 +72,10 @@ class MovementsViewModel extends ChangeNotifier {
   late DateTime _summaryMonth;
   MonthlySummary? _summary;
   String? _summaryError;
+  DebtOverview? _debtOverview;
+  String? _debtOverviewError;
+  DebtOverview? get debtOverview => _debtOverview;
+  String? get debtOverviewError => _debtOverviewError;
 
   DateTime get summaryMonth => _summaryMonth;
   MonthlySummary? get summary => _summary;
@@ -107,6 +118,13 @@ class MovementsViewModel extends ChangeNotifier {
     _summaryError = null;
     final snapshot = _snapshot;
     if (snapshot == null) return;
+    _debtOverview = null;
+    _debtOverviewError = null;
+    try {
+      _debtOverview = DebtOverview.calculate(snapshot, today);
+    } on ArgumentError {
+      _debtOverviewError = 'El total supera el rango admitido. Consulta la deuda de cada tarjeta en Cuentas.';
+    }
     try {
       _summary = MonthlySummary.calculate(
         snapshot,
@@ -152,7 +170,7 @@ class MovementsViewModel extends ChangeNotifier {
   }) async {
     final original = movementById(originalMovementId);
     if (original == null || !original.details.isExpense) {
-      if (_saving || _status != MovementsStatus.ready) return false;
+      if (isSaving || _status != MovementsStatus.ready) return false;
       _fieldErrors = const {
         'originalMovement': 'Selecciona una compra o gasto existente.',
       };
@@ -230,7 +248,7 @@ class MovementsViewModel extends ChangeNotifier {
   }
 
   Future<bool> createFinancialInstitution(String name) async {
-    if (_saving || _status != MovementsStatus.ready) return false;
+    if (isSaving || _status != MovementsStatus.ready) return false;
     FinancialInstitutionDetails details;
     try {
       details = FinancialInstitutionDetails(name: name);
@@ -267,7 +285,7 @@ class MovementsViewModel extends ChangeNotifier {
     return null;
   }
 
-  bool get isSaving => _saving;
+  bool get isSaving => _saving || _savingCategory;
   Map<String, String> get fieldErrors => Map.unmodifiable(_fieldErrors);
   String? get saveError => _saveError;
   DateTime get today {
@@ -366,7 +384,7 @@ class MovementsViewModel extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (_disposed || _saving || _loading) return;
+    if (_disposed || isSaving || _loading) return;
     final generation = ++_loadGeneration;
     _loading = true;
     _loadError = null;
@@ -394,7 +412,7 @@ class MovementsViewModel extends ChangeNotifier {
   }
 
   void startCreate() {
-    if (_saving) return;
+    if (isSaving) return;
     _fieldErrors = const {};
     _saveError = null;
   }
@@ -414,7 +432,7 @@ class MovementsViewModel extends ChangeNotifier {
     String? dateInput,
     PaymentFunding paymentFunding = PaymentFunding.account,
   }) async {
-    if (_saving || _status != MovementsStatus.ready) return false;
+    if (isSaving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     MovementDetails details;
@@ -497,7 +515,7 @@ class MovementsViewModel extends ChangeNotifier {
     required String name,
     required CategoryKind kind,
   }) async {
-    if (_saving || _status != MovementsStatus.ready) return false;
+    if (isSaving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     CategoryDetails details;
@@ -514,8 +532,49 @@ class MovementsViewModel extends ChangeNotifier {
     );
   }
 
+  Future<Category?> addCategory({
+    required String name,
+    required CategoryKind kind,
+  }) async {
+    if (isSaving || _status != MovementsStatus.ready) return null;
+    _categoryNameError = null;
+    _categorySaveError = null;
+    CategoryDetails details;
+    try {
+      details = CategoryDetails(name: name, kind: kind);
+    } on CategoryValidationException catch (error) {
+      _categoryNameError = error.message;
+      _emit();
+      return null;
+    }
+    final previous = categories.map((c) => c.id).toSet();
+    _savingCategory = true;
+    _loadGeneration++;
+    _loading = false;
+    _emit();
+    try {
+      _setSnapshot(await _repository.createCategory(details));
+      return categories.firstWhere((c) => !previous.contains(c.id));
+    } on CategoryValidationException catch (error) {
+      _categoryNameError = error.message;
+      return null;
+    } catch (_) {
+      _categorySaveError = 'No se pudo crear la categoría. Conservamos el nombre; intenta de nuevo.';
+      return null;
+    } finally {
+      _savingCategory = false;
+      _emit();
+    }
+  }
+
+  void startAddCategory() {
+    if (isSaving) return;
+    _categoryNameError = null;
+    _categorySaveError = null;
+  }
+
   Future<bool> assignCategory(int movementId, int? categoryId) async {
-    if (_saving || _status != MovementsStatus.ready) return false;
+    if (isSaving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     try {
@@ -547,7 +606,7 @@ class MovementsViewModel extends ChangeNotifier {
     Future<LedgerSnapshot> Function() action,
     String failure,
   ) async {
-    if (_saving || _status != MovementsStatus.ready) return false;
+    if (isSaving || _status != MovementsStatus.ready) return false;
     _fieldErrors = const {};
     _saveError = null;
     _saving = true;
