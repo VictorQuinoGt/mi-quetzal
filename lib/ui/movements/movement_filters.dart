@@ -46,6 +46,8 @@ class _MovementFiltersState extends State<MovementFilters> {
           ? null
           : DateTimeRange(start: filter.from!, end: filter.to!),
       helpText: 'Filtrar por fechas',
+      confirmText: 'Aceptar',
+      saveText: 'Aceptar',
     );
     if (dates != null && mounted) vm.filterByDates(dates.start, dates.end);
   }

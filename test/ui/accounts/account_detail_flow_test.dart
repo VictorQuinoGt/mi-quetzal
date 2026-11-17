@@ -207,12 +207,10 @@ void main() {
             .first;
         await press(tester, button);
         final dialog = find.byType(DatePickerDialog);
-        final ok = MaterialLocalizations.of(tester.element(dialog))
-            .okButtonLabel;
         await tester.tap(
           find.descendant(of: dialog, matching: find.text('$day')).last,
         );
-        await tester.tap(find.text(ok).last);
+        await tester.tap(find.text('Aceptar').last);
         await tester.pumpAndSettle();
       }
 

@@ -156,10 +156,7 @@ void main() {
         DateTime(2026, 11, 10),
       );
       await tester.tap(find.text('9').last);
-      final accept = MaterialLocalizations.of(
-        tester.element(find.byType(DatePickerDialog)),
-      ).okButtonLabel;
-      await tester.tap(find.text(accept));
+      await tester.tap(find.text('Aceptar'));
       await tester.pumpAndSettle();
       expect(
         tester

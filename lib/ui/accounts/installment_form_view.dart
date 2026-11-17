@@ -94,6 +94,7 @@ class _InstallmentFormViewState extends State<InstallmentFormView> {
       initialDate: isFirst ? firstDate : reference,
       firstDate: DateTime(1900),
       lastDate: isFirst ? DateTime(9900) : widget.viewModel.ledger.today,
+      confirmText: 'Aceptar',
     );
     if (date != null && mounted) {
       setState(() {

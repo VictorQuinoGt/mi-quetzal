@@ -103,6 +103,7 @@ class _CreateMovementViewState extends State<CreateMovementView> {
       firstDate: DateTime(1900),
       lastDate: widget.viewModel.today,
       helpText: 'Fecha del movimiento',
+      confirmText: 'Aceptar',
     );
     if (date != null && mounted) {
       _dateInput.text = DateInput.format(date);

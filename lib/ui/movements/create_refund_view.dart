@@ -43,6 +43,7 @@ class _CreateRefundViewState extends State<CreateRefundView> {
       firstDate: widget.original.details.date,
       lastDate: widget.viewModel.today,
       helpText: 'Fecha de la devolución',
+      confirmText: 'Aceptar',
     );
     if (date != null && mounted) setState(() => _date = date);
   }

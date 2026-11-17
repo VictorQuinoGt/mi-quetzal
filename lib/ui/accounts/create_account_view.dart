@@ -118,6 +118,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                         firstDate: DateTime(1900),
                         lastDate: DateTime(9999, 12, 31),
                         helpText: label,
+                        confirmText: 'Aceptar',
                       );
                       if (selected != null && mounted) {
                         setState(() => changed(selected));
